@@ -1,5 +1,8 @@
-{
-    "pokemons": [
-        
-    ]
-}
+[
+    {
+        "playername": "admin",
+        "pokemon": [
+            "Charizard"
+        ]
+    }
+]
