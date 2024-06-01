@@ -8,12 +8,6 @@ import (
 	"strings"
 )
 
-const (
-	HOST = "localhost"
-	PORT = "8080"
-	TYPE = "udp"
-)
-
 func main() {
 	udpAddr, err := net.ResolveUDPAddr("udp", "localhost:8080")
 	if err != nil {

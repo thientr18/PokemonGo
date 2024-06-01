@@ -1,9 +1,7 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"net"
 	"strings"
 )
@@ -12,17 +10,17 @@ const (
 	HOST        = "localhost"
 	PORT        = "8080"
 	TYPE        = "udp"
-	pokedexData = "JSON/pokedex.json"
+	pokedexData = "JSON\\pokedex.json"
 )
 
 type Pokemon struct {
-	Name string `json:"name"`
-	ID   int    `json:"id"`
+	Name string
+	ID   int
 }
 
 type PlayerPokemon struct {
 	Name  string
-	ID    string
+	ID    int
 	Level int
 	Exp   int
 }
@@ -56,13 +54,6 @@ var battles = make(map[string]*Battle)
 var pokedex Pokedex
 
 func main() {
-	// Load the pokedex data from the JSON file
-	err := loadPokedex(pokedexData)
-	if err != nil {
-		fmt.Println("Error loading pokedex data:", err)
-		return
-	}
-
 	udpAddr, err := net.ResolveUDPAddr(TYPE, HOST+":"+PORT)
 	if err != nil {
 		fmt.Println("Error resolving UDP address:", err)
@@ -133,7 +124,7 @@ func handleMessage(message string, addr *net.UDPAddr, conn *net.UDPConn) {
 			} else {
 				sendMessageToClient("Cannot chat in the battle!\nSend your next action:", addr, conn)
 			}
-		case "@battle":
+		case "battle":
 			if players[senderName].isInBattle() {
 				sendMessageToClient("You are already in a battle!", addr, conn)
 				break
@@ -150,15 +141,6 @@ func handleMessage(message string, addr *net.UDPAddr, conn *net.UDPConn) {
 				break
 			}
 			handleBattle(senderName, opponent, conn)
-		case "@pick":
-			if !players[senderName].isInBattle() {
-				sendMessageToClient("Invalid command", addr, conn)
-				break
-			}
-			temp := parts[1]
-			nextPart := strings.SplitN(temp, " ", 2)
-
-			pickPokemon(senderName, nextPart[0], conn)
 		default:
 			sendMessageToClient("Invalid command", addr, conn)
 		}
@@ -240,11 +222,11 @@ func (p *Player) isInBattle() bool {
 	return p.Battle != nil
 }
 
-func pickPokemon(playerName, pokemonID string, conn *net.UDPConn) {
+func pickPokemon(playerName string, pokemonID int, conn *net.UDPConn) {
 	player := players[playerName]
 	if len(player.Pokemons) < 3 {
 		for _, p := range pokedex.Pokemons {
-			if fmt.Sprintf("%d", p.ID) == pokemonID {
+			if p.ID == pokemonID {
 				player.Pokemons = append(player.Pokemons, PlayerPokemon{Name: p.Name, ID: p.ID, Level: 1, Exp: 0})
 				sendMessageToClient("You picked "+p.Name, player.Addr, conn)
 				break
@@ -270,34 +252,9 @@ func pickPokemon(playerName, pokemonID string, conn *net.UDPConn) {
 func startBattle(player1, player2 string, conn *net.UDPConn) {
 	battleID := player1 + "-" + player2
 	battle := battles[battleID]
-	sendMessageToClient("Both players have picked 3 Pokemons. Let the battle begin!", players[player1].Addr, conn)
-	sendMessageToClient("Both players have picked 3 Pokemons. Let the battle begin!", players[player2].Addr, conn)
+	sendMessageToClient("Both players picked their Pokemons. Battle starts now!", players[player1].Addr, conn)
+	sendMessageToClient("Both players picked their Pokemons. Battle starts now!", players[player2].Addr, conn)
+	sendMessageToClient(player1+" goes first!", players[player1].Addr, conn)
+	sendMessageToClient(player1+" goes first!", players[player2].Addr, conn)
 	battle.Turn = player1
 }
-
-func loadPokedex(filename string) error {
-	data, err := ioutil.ReadFile(filename)
-	if err != nil {
-		return err
-	}
-	return json.Unmarshal(data, &pokedex)
-}
-
-func getPickedPokemons(playerName string) []PlayerPokemon {
-	pickedPokemons := make([]PlayerPokemon, 0)
-	player, ok := players[playerName]
-	if !ok {
-		return pickedPokemons
-	}
-	for _, pokemon := range player.Pokemons {
-		pickedPokemons = append(pickedPokemons, pokemon)
-	}
-	return pickedPokemons
-}
-
-/*
-the pokemonID in method pickPokemon() is different ti the pokemonID in the pokedex.
-pokemonID in pokedex is to let user can check common info of a particular pokemon, you can call it pokedexID.
-But the pokemonID in method pickPokemon() is the id of pokemon owned by a player.
-Like a player can have many same pokemon so I want each owned pokemon have a unique id to not be duplicated.
-*/
