@@ -12,12 +12,12 @@ const (
 	HOST        = "localhost"
 	PORT        = "8080"
 	TYPE        = "udp"
-	pokedexData = "JSON/pokedex.json"
+	pokedexData = "src\\JSON\\pokedex.json"
 )
 
 type Pokemon struct {
-	Name string `json:"name"`
-	ID   int    `json:"id"`
+	Name      string `json:"name"`
+	PokedexID int    `json:"id"`
 }
 
 type PlayerPokemon struct {
@@ -100,74 +100,167 @@ func handleMessage(message string, addr *net.UDPAddr, conn *net.UDPConn) {
 
 		switch command {
 		case "@join":
-			if !checkExistedClient(parts[1]) {
-				sendMessageToClient("duplicated-username", addr, conn)
+			if !checkExistedPlayer(parts[1]) {
+				sendMessage("duplicated-username", senderName, conn)
 			} else {
 				username := parts[1]
 				players[username] = &Player{Name: username, Addr: addr}
 				fmt.Printf("User '%s' joined\n", username)
-				sendMessageToClient("Welcome to the chat, "+username+"!", addr, conn)
+				sendMessage("Welcome to the chat, "+username+"!", username, conn)
 			}
 		case "@all":
 			if !players[senderName].isInBattle() {
 				broadcastMessage(parts[1], senderName, conn) // Pass sender's name
 			} else {
-				sendMessageToClient("Cannot chat in the battle!\nSend your next action:", addr, conn)
+				sendMessage("Cannot chat in the battle!\nSend your next action:", senderName, conn)
 			}
 		case "@quit":
 			delete(players, senderName)
 			fmt.Printf("User '%s' left\n", senderName)
-			sendMessageToClient("Goodbye, "+senderName+"!", addr, conn)
+			sendMessage("Goodbye, "+senderName+"!", senderName, conn)
 		case "@private":
 			if !players[senderName].isInBattle() {
 				temp := parts[1]
 				nextPart := strings.SplitN(temp, " ", 2)
 				recipient := nextPart[0]
-				if checkExistedClient(recipient) {
-					sendErrorMessageToPlayer("Error: Recipient did not exist in the server!", addr, conn)
+				if checkExistedPlayer(recipient) {
+					sendMessage("Error: Recipient did not exist in the server!", senderName, conn)
 					break
 				} else {
 					privateMessage := senderName + " (private): " + nextPart[1]
-					sendPrivateMessage(privateMessage, recipient, conn)
+					sendMessage(privateMessage, recipient, conn)
 				}
 			} else {
-				sendMessageToClient("Cannot chat in the battle!\nSend your next action:", addr, conn)
+				sendMessage("Cannot chat in the battle!\nSend your next action:", senderName, conn)
 			}
 		case "@battle":
 			if players[senderName].isInBattle() {
-				sendMessageToClient("You are already in a battle!", addr, conn)
+				sendMessage("You are already in a battle!", senderName, conn)
 				break
 			}
 			temp := parts[1]
 			nextPart := strings.SplitN(temp, " ", 2)
 			opponent := nextPart[0]
-			if checkExistedClient(opponent) {
-				sendErrorMessageToPlayer("Error: Opponent did not exist in the server!", addr, conn)
+			if checkExistedPlayer(opponent) {
+				sendMessage("Error: Opponent did not exist in the server!", senderName, conn)
 				break
 			}
 			if players[opponent].isInBattle() {
-				sendErrorMessageToPlayer("Error: Opponent is already in a battle!", addr, conn)
+				sendMessage("Error: Opponent is already in a battle!", senderName, conn)
 				break
 			}
-			handleBattle(senderName, opponent, conn)
+			battleRequest := "Player '" + senderName + "' requests you a pokemon battle!"
+			sendMessage(battleRequest, opponent, conn)
+		case "@accept":
+			temp := parts[1]
+			nextPart := strings.SplitN(temp, " ", 2)
+			opponent := nextPart[0]
+			startBattle(senderName, opponent, conn)
+		case "@deny":
+			temp := parts[1]
+			nextPart := strings.SplitN(temp, " ", 2)
+			opponent := nextPart[0]
+			deniedMessage := "Your battle request to  '" + opponent + "' was denied!"
+			sendMessage(deniedMessage, opponent, conn)
 		case "@pick":
 			if !players[senderName].isInBattle() {
-				sendMessageToClient("Invalid command", addr, conn)
+				sendMessage("Invalid command", senderName, conn)
 				break
 			}
 			temp := parts[1]
 			nextPart := strings.SplitN(temp, " ", 2)
-
 			pickPokemon(senderName, nextPart[0], conn)
 		default:
-			sendMessageToClient("Invalid command", addr, conn)
+			sendMessage("Invalid command", senderName, conn)
 		}
 	} else {
-		sendMessageToClient("Invalid command format", addr, conn)
+		sendMessage("Invalid command format", getPlayernameByAddr(addr), conn)
 	}
 }
 
-func checkExistedClient(username string) bool {
+func (p *Player) isInBattle() bool {
+	return p.Battle != nil
+}
+
+func startBattle(player1, player2 string, conn *net.UDPConn) {
+	battleID := player1 + "-" + player2
+	battle := battles[battleID]
+	sendMessage("Both players have picked 3 Pokemons. Let the battle begin!", player1, conn)
+	sendMessage("Both players have picked 3 Pokemons. Let the battle begin!", player2, conn)
+	battle.Turn = player1
+}
+
+func pickPokemon(playerName, pokemonID string, conn *net.UDPConn) {
+	player := players[playerName]
+	if len(player.Pokemons) < 3 {
+		for _, p := range player.Pokemons {
+			if fmt.Sprintf("%s", p.ID) == pokemonID {
+				player.Pokemons = append(player.Pokemons, PlayerPokemon{Name: p.Name, ID: p.ID, Level: 1, Exp: 0}) // batle.pokemon = append
+				sendMessage("You picked "+p.Name, playerName, conn)
+				break
+			}
+		}
+	} else {
+		sendMessage("You have already picked 3 Pokemons!", playerName, conn)
+	}
+
+	if len(player.Pokemons) == 3 {
+		opponent := player.Battle.Player1
+		if player.Battle.Player1 == playerName {
+			opponent = player.Battle.Player2
+		}
+		if len(players[opponent].Pokemons) == 3 {
+			startBattle(playerName, opponent, conn)
+		} else {
+			sendMessage("Waiting for opponent to pick Pokemons.", playerName, conn)
+		}
+	}
+}
+
+func getPickedPokemons(playerName string) []PlayerPokemon {
+	pickedPokemons := make([]PlayerPokemon, 0)
+	player, ok := players[playerName]
+	if !ok {
+		return pickedPokemons
+	}
+	for _, pokemon := range player.Pokemons {
+		pickedPokemons = append(pickedPokemons, pokemon)
+	}
+	return pickedPokemons
+}
+
+func checkSpeed(pokemon1, pokemon2 string, conn *net.UDPConn) string {
+
+	return ""
+}
+
+func handleBattle(player1, player2 string, conn *net.UDPConn) {
+	battleID := player1 + "-" + player2
+	battle := &Battle{
+		Player1: player1,
+		Player2: player2,
+		Turn:    player1,
+	}
+	battles[battleID] = battle
+	players[player1].Battle = battle
+	players[player2].Battle = battle
+
+	sendMessage("Battle started between "+player1+" and "+player2+"!", player1, conn)
+	sendMessage("Battle started between "+player1+" and "+player2+"!", player2, conn)
+	sendMessage(player1+" picks first pokemon!", player1, conn)
+	sendMessage(player1+" picks first pokemon!", player2, conn)
+}
+
+func loadPokedex(filename string) error {
+	data, err := ioutil.ReadFile(filename)
+	if err != nil {
+		return err
+	}
+	return json.Unmarshal(data, &pokedex)
+}
+
+/*------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
+func checkExistedPlayer(username string) bool {
 	_, exists := players[username]
 	if !exists {
 		return true
@@ -185,13 +278,6 @@ func getPlayernameByAddr(addr *net.UDPAddr) string {
 	return ""
 }
 
-func sendMessageToClient(message string, addr *net.UDPAddr, conn *net.UDPConn) {
-	_, err := conn.WriteToUDP([]byte(message), addr)
-	if err != nil {
-		fmt.Println("Error sending message:", err)
-	}
-}
-
 func broadcastMessage(message string, senderName string, conn *net.UDPConn) {
 	for username, player := range players {
 		if username != senderName {
@@ -204,100 +290,10 @@ func broadcastMessage(message string, senderName string, conn *net.UDPConn) {
 	}
 }
 
-func sendPrivateMessage(message, username string, conn *net.UDPConn) {
+func sendMessage(message, username string, conn *net.UDPConn) {
 	player := players[username]
 	_, err := conn.WriteToUDP([]byte(message), player.Addr)
 	if err != nil {
 		fmt.Println("Error sending private message:", err)
 	}
 }
-
-func sendErrorMessageToPlayer(message string, addr *net.UDPAddr, conn *net.UDPConn) {
-	_, err := conn.WriteToUDP([]byte(message), addr)
-	if err != nil {
-		fmt.Println("Error sending error message:", err)
-	}
-}
-
-func handleBattle(player1, player2 string, conn *net.UDPConn) {
-	battleID := player1 + "-" + player2
-	battle := &Battle{
-		Player1: player1,
-		Player2: player2,
-		Turn:    player1,
-	}
-	battles[battleID] = battle
-	players[player1].Battle = battle
-	players[player2].Battle = battle
-
-	sendMessageToClient("Battle started between "+player1+" and "+player2+"!", players[player1].Addr, conn)
-	sendMessageToClient("Battle started between "+player1+" and "+player2+"!", players[player2].Addr, conn)
-	sendMessageToClient(player1+" picks first!", players[player1].Addr, conn)
-	sendMessageToClient(player1+" picks first!", players[player2].Addr, conn)
-}
-
-func (p *Player) isInBattle() bool {
-	return p.Battle != nil
-}
-
-func pickPokemon(playerName, pokemonID string, conn *net.UDPConn) {
-	player := players[playerName]
-	if len(player.Pokemons) < 3 {
-		for _, p := range pokedex.Pokemons {
-			if fmt.Sprintf("%d", p.ID) == pokemonID {
-				player.Pokemons = append(player.Pokemons, PlayerPokemon{Name: p.Name, ID: p.ID, Level: 1, Exp: 0})
-				sendMessageToClient("You picked "+p.Name, player.Addr, conn)
-				break
-			}
-		}
-	} else {
-		sendMessageToClient("You have already picked 3 Pokemons!", player.Addr, conn)
-	}
-
-	if len(player.Pokemons) == 3 {
-		opponent := player.Battle.Player1
-		if player.Battle.Player1 == playerName {
-			opponent = player.Battle.Player2
-		}
-		if len(players[opponent].Pokemons) == 3 {
-			startBattle(playerName, opponent, conn)
-		} else {
-			sendMessageToClient("Waiting for opponent to pick Pokemons.", player.Addr, conn)
-		}
-	}
-}
-
-func startBattle(player1, player2 string, conn *net.UDPConn) {
-	battleID := player1 + "-" + player2
-	battle := battles[battleID]
-	sendMessageToClient("Both players have picked 3 Pokemons. Let the battle begin!", players[player1].Addr, conn)
-	sendMessageToClient("Both players have picked 3 Pokemons. Let the battle begin!", players[player2].Addr, conn)
-	battle.Turn = player1
-}
-
-func loadPokedex(filename string) error {
-	data, err := ioutil.ReadFile(filename)
-	if err != nil {
-		return err
-	}
-	return json.Unmarshal(data, &pokedex)
-}
-
-func getPickedPokemons(playerName string) []PlayerPokemon {
-	pickedPokemons := make([]PlayerPokemon, 0)
-	player, ok := players[playerName]
-	if !ok {
-		return pickedPokemons
-	}
-	for _, pokemon := range player.Pokemons {
-		pickedPokemons = append(pickedPokemons, pokemon)
-	}
-	return pickedPokemons
-}
-
-/*
-the pokemonID in method pickPokemon() is different ti the pokemonID in the pokedex.
-pokemonID in pokedex is to let user can check common info of a particular pokemon, you can call it pokedexID.
-But the pokemonID in method pickPokemon() is the id of pokemon owned by a player.
-Like a player can have many same pokemon so I want each owned pokemon have a unique id to not be duplicated.
-*/

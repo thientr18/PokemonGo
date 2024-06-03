@@ -15,6 +15,12 @@ const (
 )
 
 func main() {
+	fmt.Print(
+		"Game Instruction:" +
+			"" +
+			"" +
+			"\n")
+
 	udpAddr, err := net.ResolveUDPAddr("udp", "localhost:8080")
 	if err != nil {
 		fmt.Println("Error resolving UDP address:", err)
