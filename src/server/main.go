@@ -118,6 +118,7 @@ func handleMessage(message string, addr *net.UDPAddr, conn *net.UDPConn) {
 			delete(players, senderName)
 			fmt.Printf("User '%s' left\n", senderName)
 			sendMessage("Goodbye, "+senderName+"!", senderName, conn)
+			// surrentder()
 		case "@private":
 			if !players[senderName].isInBattle() {
 				temp := parts[1]
@@ -170,6 +171,8 @@ func handleMessage(message string, addr *net.UDPAddr, conn *net.UDPConn) {
 			temp := parts[1]
 			nextPart := strings.SplitN(temp, " ", 2)
 			pickPokemon(senderName, nextPart[0], conn)
+		case "@surrender":
+			handleSurrender(senderName, conn)
 		default:
 			sendMessage("Invalid command", senderName, conn)
 		}
@@ -184,10 +187,19 @@ func (p *Player) isInBattle() bool {
 
 func startBattle(player1, player2 string, conn *net.UDPConn) {
 	battleID := player1 + "-" + player2
-	battle := battles[battleID]
-	sendMessage("Both players have picked 3 Pokemons. Let the battle begin!", player1, conn)
-	sendMessage("Both players have picked 3 Pokemons. Let the battle begin!", player2, conn)
-	battle.Turn = player1
+	battle := &Battle{
+		Player1: player1,
+		Player2: player2,
+		Turn:    player1,
+	}
+	battles[battleID] = battle
+	players[player1].Battle = battle
+	players[player2].Battle = battle
+
+	sendMessage("Battle started between "+player1+" and "+player2+"!", player1, conn)
+	sendMessage("Battle started between "+player1+" and "+player2+"!", player2, conn)
+	sendMessage(player1+" picks first pokemon!", player1, conn)
+	sendMessage(player1+" picks first pokemon!", player2, conn)
 }
 
 func pickPokemon(playerName, pokemonID string, conn *net.UDPConn) {
@@ -251,6 +263,36 @@ func handleBattle(player1, player2 string, conn *net.UDPConn) {
 	sendMessage(player1+" picks first pokemon!", player2, conn)
 }
 
+func handleSurrender(playerName string, conn *net.UDPConn) {
+	player := players[playerName]
+	if player.Battle == nil {
+		sendMessage("You are not in a battle!", playerName, conn)
+		return
+	}
+
+	opponentName := player.Battle.Player1
+	if player.Battle.Player1 == playerName {
+		opponentName = player.Battle.Player2
+	}
+
+	totalExp := 0
+	for _, p := range player.Pokemons {
+		totalExp += p.Exp
+	}
+	expShare := totalExp / 3
+
+	for i := range players[opponentName].Pokemons {
+		players[opponentName].Pokemons[i].Exp += expShare
+	}
+
+	sendMessage("You surrendered! "+opponentName+" wins the battle!", playerName, conn)
+	sendMessage(playerName+" surrendered! You win the battle!", opponentName, conn)
+
+	player.Battle = nil
+	players[opponentName].Battle = nil
+	delete(battles, player.Battle.Player1+"-"+player.Battle.Player2)
+}
+
 func loadPokedex(filename string) error {
 	data, err := ioutil.ReadFile(filename)
 	if err != nil {
@@ -259,7 +301,6 @@ func loadPokedex(filename string) error {
 	return json.Unmarshal(data, &pokedex)
 }
 
-/*------------------------------------------------------------------------------------------------------------------------------------------------------------------*/
 func checkExistedPlayer(username string) bool {
 	_, exists := players[username]
 	if !exists {
