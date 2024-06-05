@@ -40,6 +40,10 @@ type Battle struct {
 	Turn    string
 }
 
-var players = make(map[string]*Player)
-var battles = make(map[string]*Battle)
 var pokedex Pokedex
+
+var players = make(map[string]*Player)
+
+var battles = make(map[string]*Battle)
+var p1pokemons = make(map[string]*PlayerPokemon)
+var p2pokemons = make(map[string]*PlayerPokemon)

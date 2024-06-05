@@ -5,6 +5,11 @@ import (
 	"net"
 )
 
+var (
+	numCurrentUser int
+	numMaxUser     int
+)
+
 func attack() {
 	panic("unimplemented")
 }
