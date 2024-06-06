@@ -264,21 +264,27 @@ func handleBattle(player1, player2 string, conn *net.UDPConn) {
 }
 
 func handleSurrender(playerName string, conn *net.UDPConn) {
+
 	player := players[playerName]
+
 	if player.Battle == nil {
+
 		sendMessage("You are not in a battle!", playerName, conn)
 		return
 	}
 
 	opponentName := player.Battle.Player1
+
 	if player.Battle.Player1 == playerName {
 		opponentName = player.Battle.Player2
 	}
 
+	// pick 3 pokemon
 	totalExp := 0
-	for _, p := range player.Pokemons {
-		totalExp += p.Exp
+	for i := 0; i < 3 && i < len(player.Pokemons); i++ {
+		totalExp += player.Pokemons[i].Exp
 	}
+
 	expShare := totalExp / 3
 
 	for i := range players[opponentName].Pokemons {
@@ -290,7 +296,8 @@ func handleSurrender(playerName string, conn *net.UDPConn) {
 
 	player.Battle = nil
 	players[opponentName].Battle = nil
-	delete(battles, player.Battle.Player1+"-"+player.Battle.Player2)
+
+	delete(battles, player.Battle.Player1+" and "+player.Battle.Player2)
 }
 
 func loadPokedex(filename string) error {
