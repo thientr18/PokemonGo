@@ -162,6 +162,7 @@ func handleMessage(message string, addr *net.UDPAddr, conn *net.UDPConn) {
 			}
 			battleRequest := "Player '" + senderName + "' requests you a pokemon battle!"
 			sendMessage(battleRequest, players[opponent].Addr, conn)
+			battleInvites[senderName] = opponent
 			sendMessage("battle_invited "+opponent, players[opponent].Addr, conn)
 		case "@accept":
 			if players[senderName].isInBattle() {
@@ -175,6 +176,7 @@ func handleMessage(message string, addr *net.UDPAddr, conn *net.UDPConn) {
 			sendMessage("Battle Started!", addr, conn)
 			sendMessage("Your battle request with player '"+senderName+"' is accepted!", players[opponent].Addr, conn)
 			sendMessage("Battle Started!", players[opponent].Addr, conn)
+			battleHandler(addr, players[opponent].Addr)
 		case "@deny":
 			temp := parts[1]
 			nextPart := strings.SplitN(temp, " ", 2)
@@ -200,7 +202,6 @@ func handleMessage(message string, addr *net.UDPAddr, conn *net.UDPConn) {
 		// 		pokemonID := nextPart[0]
 		// 		changePokemon(pokemonID)
 		// 	}
-
 		// case "@surrender":
 		// 	handleSurrender(senderName, conn)
 
@@ -210,6 +211,23 @@ func handleMessage(message string, addr *net.UDPAddr, conn *net.UDPConn) {
 	} else {
 		sendMessage("Invalid command format", addr, conn)
 	}
+}
+
+func (p *Player) isInBattle() bool {
+	return p.Battle != nil
+}
+
+func battleHandler(player1 *net.UDPAddr, player2 *net.UDPAddr) {
+	// chooseThreePokemons()
+	checkFirstTurn(player1, player2)
+}
+
+func chooseThreePokemons(player1 *net.UDPAddr) {
+
+}
+
+func checkFirstTurn(player1 *net.UDPAddr, player2 *net.UDPAddr) {
+
 }
 
 func broadcastMessage(message string, senderName string, conn *net.UDPConn) {
@@ -231,14 +249,6 @@ func sendMessage(message string, addr *net.UDPAddr, conn *net.UDPConn) {
 	}
 }
 
-func loadPokedex(filename string) error {
-	data, err := ioutil.ReadFile(filename)
-	if err != nil {
-		return err
-	}
-	return json.Unmarshal(data, &pokedex)
-}
-
 func checkExistedPlayer(username string) bool {
 	_, exists := players[username]
 	if !exists {
@@ -257,6 +267,10 @@ func getPlayernameByAddr(addr *net.UDPAddr) string {
 	return ""
 }
 
-func (p *Player) isInBattle() bool {
-	return p.Battle != nil
+func loadPokedex(filename string) error {
+	data, err := ioutil.ReadFile(filename)
+	if err != nil {
+		return err
+	}
+	return json.Unmarshal(data, &pokedex)
 }
