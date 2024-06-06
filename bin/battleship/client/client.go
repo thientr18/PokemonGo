@@ -211,26 +211,6 @@ func main() {
 
 }
 
-// FUNCTIONS
-// functions related to network
-func connectToServer() (connection net.Conn) { // connect to relay server
-	connection, err := net.Dial("tcp", "localhost:8080")
-	// connection, err := net.Dial("tcp", "127.0.0.1:8200") // for debugging
-
-	if err != nil { // if failed to connect to server
-		fmt.Println("Failed to connect to server: ", err)
-		fmt.Println("Please make sure that the server is available now. If so, please try again.")
-		fmt.Println("Battleship client shut down.")
-		time.Sleep(5 * time.Second)
-		return
-	}
-	// if connected to server
-	fmt.Println("Successfully connected to server.")
-	return
-}
-func disconnectToServer(connection net.Conn) {
-	connection.Close()
-}
 func readServer(connection net.Conn, pMyBoard *[boardSize][boardSize]int, pEnemyBoard *[boardSize][boardSize]int, pIsReady *bool, pEnemyReady *bool, pMyTurn *bool, pDestroyedCheck *[5]bool) { // read and decode message from server
 	// received data is stored in it
 	data := make([]byte, 256)
@@ -275,6 +255,7 @@ func readServer(connection net.Conn, pMyBoard *[boardSize][boardSize]int, pEnemy
 		requestHandler(connection, message, pMyBoard, pEnemyBoard, pIsReady, pEnemyReady, pMyTurn, pDestroyedCheck)
 	}
 }
+
 func requestHandler(connection net.Conn, message Message, pMyBoard *[boardSize][boardSize]int, pEnemyBoard *[boardSize][boardSize]int, pIsReady *bool, pEnemyReady *bool, pMyTurn *bool, pDestroyedCheck *[5]bool) {
 	if message.Header.MessageType == "chat" { //if message type is chat
 		fmt.Print("[", (strconv.Itoa(time.Now().Hour()) + ":" + strconv.Itoa(time.Now().Minute()) + ":" + strconv.Itoa(time.Now().Second())))
@@ -481,7 +462,7 @@ func writeServer(message string, connection net.Conn, pMyTurn *bool) {
 			writeServer("/!", connection, pMyTurn)
 			disconnectToServer(connection)
 			os.Exit(1)
-		} else if message[1] == 'a' { // attack
+		} else if message[1] == 'a' { // attack --------------------------------------------------------------------------------------------------------------------------------
 			if *pMyTurn {
 				if len(message) < 4 {
 					fmt.Println("Invalid input: Length of the text is too short. Please try again.")
@@ -553,6 +534,7 @@ func writeServer(message string, connection net.Conn, pMyTurn *bool) {
 
 	encoderBuffer.Reset()
 }
+
 func getCurrentUser() (currentUser int) { // not implemented
 	currentUser = 0
 	return
@@ -1019,4 +1001,25 @@ func rstrip(pLine *string) { // strip white spaces of right side
 		*pLine = (*pLine)[0 : len(*pLine)-1]
 		tmp = (*pLine)[len(*pLine)-1]
 	}
+}
+
+// FUNCTIONS
+// functions related to network
+func connectToServer() (connection net.Conn) { // connect to relay server
+	connection, err := net.Dial("tcp", "localhost:8080")
+	// connection, err := net.Dial("tcp", "127.0.0.1:8200") // for debugging
+
+	if err != nil { // if failed to connect to server
+		fmt.Println("Failed to connect to server: ", err)
+		fmt.Println("Please make sure that the server is available now. If so, please try again.")
+		fmt.Println("Battleship client shut down.")
+		time.Sleep(5 * time.Second)
+		return
+	}
+	// if connected to server
+	fmt.Println("Successfully connected to server.")
+	return
+}
+func disconnectToServer(connection net.Conn) {
+	connection.Close()
 }

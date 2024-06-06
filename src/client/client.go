@@ -8,19 +8,7 @@ import (
 	"strings"
 )
 
-const (
-	HOST = "localhost"
-	PORT = "8080"
-	TYPE = "udp"
-)
-
 func main() {
-	fmt.Print(
-		"Game Instruction:" +
-			"" +
-			"" +
-			"\n")
-
 	udpAddr, err := net.ResolveUDPAddr("udp", "localhost:8080")
 	if err != nil {
 		fmt.Println("Error resolving UDP address:", err)

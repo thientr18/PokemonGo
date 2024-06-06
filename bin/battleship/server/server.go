@@ -50,7 +50,8 @@ func main() {
 			}
 		}
 	}
-	fmt.Println("Network protocol: \"tcp\", Address: " + currentIP + "\nListening: \":8200\"")
+
+	fmt.Println("Network protocol: \"tcp\", Address: " + currentIP + "\nListening: \":8080\"")
 	fmt.Print("\n")
 
 	defer listener.Close()
@@ -73,26 +74,6 @@ func main() {
 	}
 }
 
-func closeConnection(connection net.Conn, currentUsers map[net.Conn]net.Addr, address net.Addr) {
-	var foundUser bool
-	foundUser = false
-	for conn, addr := range currentUsers { // find address index in 'currentUsers' map
-		if addr == address {
-			fmt.Print("[" + (strconv.Itoa(time.Now().Hour()) + ":" + strconv.Itoa(time.Now().Minute()) + ":" + strconv.Itoa(time.Now().Second()) + "'" + strconv.Itoa(time.Now().Nanosecond())) + "] ")
-			fmt.Println(addr, "left the server.")
-			delete(currentUsers, conn)
-			foundUser = true
-
-			numCurrentUser--
-		}
-	}
-	if !foundUser { // error handling
-		fmt.Println("Error in 'closeConnection': failed to find and erase user address in 'currentUsers' map.")
-		return
-	}
-
-	connection.Close()
-}
 func requestHandler(connection net.Conn, currentUsers map[net.Conn]net.Addr, readyUsers map[net.Conn]net.Addr) {
 	// received data is stored in it
 	data := make([]byte, 256)
@@ -118,6 +99,7 @@ func requestHandler(connection net.Conn, currentUsers map[net.Conn]net.Addr, rea
 		}
 	}
 }
+
 func userCommand(currentUsers map[net.Conn]net.Addr) {
 	for {
 		var cmd string
@@ -155,4 +137,25 @@ func userCommand(currentUsers map[net.Conn]net.Addr) {
 			fmt.Println("Failed to find command: ", cmd)
 		}
 	}
+}
+
+func closeConnection(connection net.Conn, currentUsers map[net.Conn]net.Addr, address net.Addr) {
+	var foundUser bool
+	foundUser = false
+	for conn, addr := range currentUsers { // find address index in 'currentUsers' map
+		if addr == address {
+			fmt.Print("[" + (strconv.Itoa(time.Now().Hour()) + ":" + strconv.Itoa(time.Now().Minute()) + ":" + strconv.Itoa(time.Now().Second()) + "'" + strconv.Itoa(time.Now().Nanosecond())) + "] ")
+			fmt.Println(addr, "left the server.")
+			delete(currentUsers, conn)
+			foundUser = true
+
+			numCurrentUser--
+		}
+	}
+	if !foundUser { // error handling
+		fmt.Println("Error in 'closeConnection': failed to find and erase user address in 'currentUsers' map.")
+		return
+	}
+
+	connection.Close()
 }
