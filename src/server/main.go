@@ -41,10 +41,11 @@ type (
 	}
 
 	Player struct {
-		Name     string
-		Addr     *net.UDPAddr
-		Pokemons []PlayerPokemon
-		Battle   *Battle
+		Name                  string
+		Addr                  *net.UDPAddr
+		Pokemons              []PlayerPokemon
+		battleRequestSends    map[string]string // store number of request that a player send: 'map[receivers]sender'
+		battleRequestReceives map[string]string // store number of request that a player get: 'map[senders]receiver'
 	}
 
 	Battle struct {
@@ -61,9 +62,9 @@ var pokedex Pokedex
 var players = make(map[string]*Player)
 
 var battles = make(map[string]*Battle)
+
 var p1pokemons = make(map[string]*PlayerPokemon)
 var p2pokemons = make(map[string]*PlayerPokemon)
-var battleInvites = make(map[string]string) //store invisions of players in the game
 
 func main() {
 	// Load the pokedex data from the JSON file
@@ -114,7 +115,11 @@ func handleMessage(message string, addr *net.UDPAddr, conn *net.UDPConn) {
 				sendMessage("duplicated_username", addr, conn)
 			} else {
 				username := parts[1]
-				players[username] = &Player{Name: username, Addr: addr}
+				players[username] = &Player{Name: username,
+					Addr:                  addr,
+					battleRequestSends:    make(map[string]string),
+					battleRequestReceives: make(map[string]string),
+				}
 				fmt.Printf("User '%s' joined\n", username)
 				sendMessage("Welcome to the chat, "+username+"!", addr, conn)
 			}
@@ -145,7 +150,7 @@ func handleMessage(message string, addr *net.UDPAddr, conn *net.UDPConn) {
 				sendMessage("Cannot chat in the battle!\nSend your next action:", addr, conn)
 			}
 		case "@battle":
-			if players[senderName].isInBattle() {
+			if isInBattle(senderName) {
 				sendMessage("You are already in a battle!", addr, conn)
 				break
 			}
@@ -156,33 +161,51 @@ func handleMessage(message string, addr *net.UDPAddr, conn *net.UDPConn) {
 				sendMessage("Error: Opponent did not exist in the server!", addr, conn)
 				break
 			}
-			if players[opponent].isInBattle() {
+			if isInBattle(opponent) {
 				sendMessage("Error: Opponent is already in a battle!", addr, conn)
 				break
 			}
-			battleRequest := "Player '" + senderName + "' requests you a pokemon battle!"
-			sendMessage(battleRequest, players[opponent].Addr, conn)
-			battleInvites[senderName] = opponent
-			sendMessage("battle_invited "+opponent, players[opponent].Addr, conn)
+
+			players[senderName].battleRequestSends[opponent] = senderName
+			players[opponent].battleRequestReceives[senderName] = opponent
+
+			battleRequestMessage := "Player '" + senderName + "' requests you a pokemon battle!"
+			sendMessage(battleRequestMessage, players[opponent].Addr, conn)
 		case "@accept":
-			if players[senderName].isInBattle() {
+			if isInBattle(senderName) {
 				sendMessage("You are already in a battle!", addr, conn)
 				break
 			}
 			temp := parts[1]
 			nextPart := strings.SplitN(temp, " ", 2)
 			opponent := nextPart[0]
-			sendMessage("You accepted a battle with player '"+opponent+"'", addr, conn)
-			sendMessage("Battle Started!", addr, conn)
-			sendMessage("Your battle request with player '"+senderName+"' is accepted!", players[opponent].Addr, conn)
-			sendMessage("Battle Started!", players[opponent].Addr, conn)
-			battleHandler(addr, players[opponent].Addr)
+			if players[senderName].battleRequestReceives[opponent] == senderName &&
+				players[opponent].battleRequestSends[senderName] == opponent {
+				sendMessage("You accepted a battle with player '"+opponent+"'", addr, conn)
+				sendMessage("Battle Started!", addr, conn)
+				sendMessage("Your battle request with player '"+senderName+"' is accepted!", players[opponent].Addr, conn)
+				sendMessage("Battle Started!", players[opponent].Addr, conn)
+
+				battleHandler(senderName, opponent, addr, players[opponent].Addr)
+			} else {
+				sendMessage("Invalid acception! (WRONG opppent name or NOT RECEIVES battle request from this opponent)", addr, conn)
+			}
+
 		case "@deny":
 			temp := parts[1]
 			nextPart := strings.SplitN(temp, " ", 2)
 			opponent := nextPart[0]
-			deniedMessage := "Your battle request to  '" + opponent + "' was denied!"
-			sendMessage(deniedMessage, players[opponent].Addr, conn)
+
+			if players[senderName].battleRequestReceives[opponent] == senderName &&
+				players[opponent].battleRequestSends[senderName] == opponent {
+				delete(players[opponent].battleRequestSends, senderName)
+				delete(players[senderName].battleRequestReceives, opponent)
+
+				sendMessage("You denied a battle with player '"+opponent+"'", addr, conn)
+				sendMessage("Your battle request to player '"+senderName+"' was dinied!", players[opponent].Addr, conn)
+			} else {
+				sendMessage("Invalid acception! (WRONG opppent name or NOT RECEIVES battle request from this opponent)", addr, conn)
+			}
 		// case "@pick":
 		// 	if !players[senderName].isInBattle() {
 		// 		sendMessage("Invalid command", senderName, conn)
@@ -213,13 +236,27 @@ func handleMessage(message string, addr *net.UDPAddr, conn *net.UDPConn) {
 	}
 }
 
-func (p *Player) isInBattle() bool {
-	return p.Battle != nil
+func isInBattle(p string) bool {
+	_, exists := battles[p]
+	if !exists {
+		return true
+	} else {
+		return false
+	}
 }
 
-func battleHandler(player1 *net.UDPAddr, player2 *net.UDPAddr) {
+func battleHandler(player1 string, player2 string, addr1 *net.UDPAddr, addr2 *net.UDPAddr) {
+	var battleTemp = "ddddd"
+
+	battles[battleTemp] = &Battle{
+		Player1:    string,
+		Player2:    string,
+		Turn:       string,
+		P1Pokemons: []PlayerPokemon,
+		P2Pokemons: []PlayerPokemon}
+
 	// chooseThreePokemons()
-	checkFirstTurn(player1, player2)
+	checkFirstTurn(addr1, addr2)
 }
 
 func chooseThreePokemons(player1 *net.UDPAddr) {

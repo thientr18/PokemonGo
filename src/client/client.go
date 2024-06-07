@@ -8,9 +8,6 @@ import (
 	"strings"
 )
 
-var battleInvites = make(map[string]string)
-var users = make(map[net.Conn]string)
-
 func main() {
 	udpAddr, err := net.ResolveUDPAddr("udp", "localhost:8080")
 	if err != nil {
@@ -32,7 +29,6 @@ func main() {
 		fmt.Print("Enter your username: ")
 		username, _ := reader.ReadString('\n')
 		username = strings.TrimSpace(username)
-		users[conn] = username // store username
 		_, err = conn.Write([]byte("@join " + username))
 		if err != nil {
 			fmt.Println("Error joining chat:", err)
@@ -44,12 +40,10 @@ func main() {
 		if err != nil {
 
 		}
-
-		if string(buffer[:n]) == "duplicated-username" {
+		if string(buffer[:n]) == "duplicated_username" {
 			fmt.Println("Duplicated username, choose other username!")
 		} else {
 			fmt.Println(string(buffer[:n]))
-
 			break
 		}
 	}
@@ -76,18 +70,12 @@ func receiveMessages(conn *net.UDPConn) {
 			fmt.Println("Error receiving message:", err)
 			return
 		}
+		fmt.Println(string(buffer[:n]))
+
 		// Check if the user wants to quit
 		if strings.Split(string(buffer[:n]), ", ")[0] == "Goodbye" {
-			fmt.Println(string(buffer[:n]))
-			delete(users, conn)
 			os.Exit(0)
 			break
 		}
-
-		fmt.Println(string(buffer[:n]))
 	}
-}
-
-func chooseThreePokemons(player *net.UDPAddr) {
-
 }
