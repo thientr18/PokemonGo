@@ -37,23 +37,6 @@ var gameState = GameState{
 	Games: make(map[string]*Game),
 }
 
-var availablePokemons []Pokemon
-
-func loadPokemonData(filename string) error {
-	data, err := ioutil.ReadFile(filename)
-	if err != nil {
-		return err
-	}
-	var pokemons struct {
-		Pokemons []Pokemon `json:"pokemons"`
-	}
-	if err := json.Unmarshal(data, &pokemons); err != nil {
-		return err
-	}
-	availablePokemons = pokemons.Pokemons
-	return nil
-}
-
 func handleConnection(conn *net.UDPConn, addr *net.UDPAddr, msg string) {
 	gameState.mu.Lock()
 	defer gameState.mu.Unlock()
@@ -157,6 +140,23 @@ func handleConnection(conn *net.UDPConn, addr *net.UDPAddr, msg string) {
 			}
 		}
 	}
+}
+
+var availablePokemons []Pokemon
+
+func loadPokemonData(filename string) error {
+	data, err := ioutil.ReadFile(filename)
+	if err != nil {
+		return err
+	}
+	var pokemons struct {
+		Pokemons []Pokemon `json:"pokemons"`
+	}
+	if err := json.Unmarshal(data, &pokemons); err != nil {
+		return err
+	}
+	availablePokemons = pokemons.Pokemons
+	return nil
 }
 
 func formatPokemonList() string {

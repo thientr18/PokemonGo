@@ -34,16 +34,6 @@ type (
 		Speed int `json:"Speed"`
 	}
 
-	Player struct {
-		Name                  string
-		Addr                  *net.UDPAddr
-		Pokemons              map[string]PlayerPokemon
-		battleRequestSends    map[string]string // store number of request that a player send: 'map[receivers]sender'
-		battleRequestReceives map[string]string // store number of request that a player get: 'map[senders]receiver'
-		inBattleWith          string
-		Active                string
-	}
-
 	PlayerPokemon struct { // store pokemmon that a player holding
 		Name  string `json:"Name"`
 		ID    string
@@ -55,6 +45,15 @@ type (
 		SpAtk int `json:"Sp.Atk"`
 		SpDef int `json:"Sp.Def"`
 		Speed int `json:"Speed"`
+	}
+
+	Player struct {
+		Name                  string
+		Addr                  *net.UDPAddr
+		Pokemons              map[string]PlayerPokemon
+		battleRequestSends    map[string]string // store number of request that a player send: 'map[receivers]sender'
+		battleRequestReceives map[string]string // store number of request that a player get: 'map[senders]receiver'
+		Active                string
 	}
 
 	BattlePokemon struct { // 3 pokemons to choose in a battle
@@ -71,7 +70,7 @@ type (
 		TurnOrder []string
 		Current   int
 		Players   map[string]*Player
-		Status    string // "inviting", "active"
+		Status    string // "waiting", "inviting", "active"
 	}
 
 	GameState struct {
@@ -84,20 +83,20 @@ var gameState = GameState{
 	Games: make(map[string]*Game),
 }
 
-var pokedex PokeInfo
+var pokedex PokeInfo // pokedex
 
-var players = make(map[string]*Player)
+var players = make(map[string]*Player) // list of player
 
-var inBattlePlayers = make(map[string]string)
+var inBattleWith = make(map[string]string) // check player is in battle or not
 
-var availablePokemons []PlayerPokemon
+var availablePokemons []PlayerPokemon // store pokemons of player
 
 func main() {
 	// Load the pokedex data from the JSON file
 	err := loadPokedex(pokedexData)
 	if err != nil {
 		fmt.Println("Error loading pokedex data:", err)
-		return
+
 	}
 
 	// Load the pokedex data from the JSON file
@@ -143,27 +142,38 @@ func handleMessage(message string, addr *net.UDPAddr, conn *net.UDPConn) {
 		if !isInBattle(senderName) {
 			switch command {
 			case "@join":
+				if len(parts) < 2 {
+					sendMessage("Invalid command", addr, conn)
+					break
+				}
+
 				if checkExistedPlayer(parts[1]) {
 					sendMessage("duplicated_username", addr, conn)
 				} else if checkExistedPlayerByAddr(addr) {
 					break
 				} else {
 					username := parts[1]
-					players[username] = &Player{Name: username,
+					players[username] = &Player{
+						Name:                  username,
 						Addr:                  addr,
 						battleRequestSends:    make(map[string]string),
 						battleRequestReceives: make(map[string]string),
 					}
 					fmt.Printf("User '%s' joined\n", username)
-					sendMessage("Welcome to the chat, "+username+"!", addr, conn)
+					sendMessage("Welcome to the chat '"+username+"'!", addr, conn)
 				}
 			case "@all":
 				broadcastMessage(parts[1], senderName, conn) // Pass sender's name
 			case "@quit":
 				delete(players, senderName)
 				fmt.Printf("User '%s' left\n", senderName)
-				sendMessage("Goodbye, "+senderName+"!", addr, conn)
+				sendMessage("Goodbye '"+senderName+"'!", addr, conn)
 			case "@private":
+				if len(parts) < 2 {
+					sendMessage("Invalid command", addr, conn)
+					break
+				}
+
 				temp := parts[1]
 				nextPart := strings.SplitN(temp, " ", 2)
 				receiver := nextPart[0]
@@ -175,9 +185,15 @@ func handleMessage(message string, addr *net.UDPAddr, conn *net.UDPConn) {
 					sendMessage(privateMessage, players[receiver].Addr, conn)
 				}
 			case "@battle":
+				if len(parts) < 2 {
+					sendMessage("Invalid command", addr, conn)
+					break
+				}
+
 				temp := parts[1]
 				nextPart := strings.SplitN(temp, " ", 2)
 				opponent := nextPart[0]
+
 				if !checkExistedPlayer(opponent) {
 					sendMessage("Error: Opponent did not exist in the server!", addr, conn)
 					break
@@ -193,9 +209,15 @@ func handleMessage(message string, addr *net.UDPAddr, conn *net.UDPConn) {
 				battleRequestMessage := "Player '" + senderName + "' requests you a pokemon battle!"
 				sendMessage(battleRequestMessage, players[opponent].Addr, conn)
 			case "@accept":
+				if len(parts) < 2 {
+					sendMessage("Invalid command", addr, conn)
+					break
+				}
+
 				temp := parts[1]
 				nextPart := strings.SplitN(temp, " ", 2)
 				opponent := nextPart[0]
+
 				if players[senderName].battleRequestReceives[opponent] == senderName &&
 					players[opponent].battleRequestSends[senderName] == opponent {
 					sendMessage("You accepted a battle with player '"+opponent+"'", addr, conn)
@@ -205,16 +227,17 @@ func handleMessage(message string, addr *net.UDPAddr, conn *net.UDPConn) {
 					sendMessage("Battle Started!", players[opponent].Addr, conn)
 					sendMessage("Choose your first pokemon:", players[opponent].Addr, conn)
 
-					inBattlePlayers[senderName] = opponent
-					inBattlePlayers[opponent] = senderName
-					players[senderName] = &Player{inBattleWith: opponent}
-					players[opponent] = &Player{inBattleWith: senderName}
-
-					conn.WriteToUDP([]byte("POKEMON_LIST|"+formatPokemonList()), addr)
+					inBattleWith[senderName] = opponent
+					inBattleWith[opponent] = senderName
 				} else {
 					sendMessage("Invalid acception! (WRONG opppent name or NOT RECEIVES battle request from this opponent)", addr, conn)
 				}
 			case "@deny":
+				if len(parts) < 2 {
+					sendMessage("Invalid command", addr, conn)
+					break
+				}
+
 				temp := parts[1]
 				nextPart := strings.SplitN(temp, " ", 2)
 				opponent := nextPart[0]
@@ -229,6 +252,8 @@ func handleMessage(message string, addr *net.UDPAddr, conn *net.UDPConn) {
 				} else {
 					sendMessage("Invalid acception! (WRONG opppent name or NOT RECEIVES battle request from this opponent)", addr, conn)
 				}
+			case "@list":
+				sendMessage("@pokemonlist"+formatPokemonList(), addr, conn)
 			default:
 				sendMessage("Invalid command", addr, conn)
 			}
@@ -242,10 +267,15 @@ func handleMessage(message string, addr *net.UDPAddr, conn *net.UDPConn) {
 				sendMessage("Goodbye, "+senderName+"!", addr, conn)
 				// surrentder()
 			case "@private":
+				if len(parts) < 2 {
+					sendMessage("Invalid command", addr, conn)
+					break
+				}
+
 				temp := parts[1]
 				nextPart := strings.SplitN(temp, " ", 2)
 				receiver := nextPart[0]
-				if receiver != players[senderName].inBattleWith {
+				if receiver != inBattleWith[senderName] {
 					sendMessage("Cannot chat with other players!", addr, conn)
 					break
 				} else {
@@ -259,6 +289,11 @@ func handleMessage(message string, addr *net.UDPAddr, conn *net.UDPConn) {
 				sendMessage("You are already in a battle!", addr, conn)
 				break
 			case "@deny":
+				if len(parts) < 2 {
+					sendMessage("Invalid command", addr, conn)
+					break
+				}
+
 				temp := parts[1]
 				nextPart := strings.SplitN(temp, " ", 2)
 				opponent := nextPart[0]
@@ -273,126 +308,79 @@ func handleMessage(message string, addr *net.UDPAddr, conn *net.UDPConn) {
 				} else {
 					sendMessage("Invalid acception! (WRONG opppent name or NOT RECEIVES battle request from this opponent)", addr, conn)
 				}
+			case "@choose":
+				if len(parts) != 4 {
+					sendMessage("Invalid choose command", addr, conn)
+					break
+				}
+
+				if _, exists := gameState.Games[senderName]; !exists {
+					pokemons := make(map[string]PlayerPokemon)
+					for i := 2; i < 5; i++ {
+						for _, p := range availablePokemons {
+							if p.Name == parts[i] {
+								pokemons[parts[i]] = p
+								break
+							}
+						}
+					}
+					battlePlayer := &Player{Name: senderName, Pokemons: pokemons, Active: parts[2]}
+					gameState.Games[senderName] = &Game{
+						TurnOrder: []string{senderName},
+						Current:   0,
+						Players:   map[string]*Player{senderName: battlePlayer},
+						Status:    "waiting",
+					}
+					conn.WriteToUDP([]byte("@chosen|"+senderName), addr)
+				}
+			case "@attack":
+				for _, game := range gameState.Games {
+					if player, ok := game.Players[senderName]; ok {
+						if game.TurnOrder[game.Current] != senderName {
+							conn.WriteToUDP([]byte("Not your turn"), addr)
+							return
+						}
+						opponentID := game.TurnOrder[(game.Current+1)%len(game.TurnOrder)]
+						if opponent, ok := game.Players[opponentID]; ok {
+							opponentPokemon := opponent.Pokemons[opponent.Active]
+							opponentPokemon.Hp -= player.Pokemons[player.Active].Atk
+							opponent.Pokemons[opponent.Active] = opponentPokemon // Reassign modified Pokémon back to map
+							if opponentPokemon.Hp <= 0 {
+								conn.WriteToUDP([]byte("@win"+senderName), addr)
+							} else {
+								conn.WriteToUDP([]byte("@attacke "+senderName), addr)
+								game.Current = (game.Current + 1) % len(game.TurnOrder)
+							}
+						}
+					}
+				}
+			case "@change":
+				for _, game := range gameState.Games {
+					if player, ok := game.Players[senderName]; ok {
+						if game.TurnOrder[game.Current] != senderName {
+							conn.WriteToUDP([]byte("Not your turn"), addr)
+							return
+						}
+						if len(parts) == 3 {
+							newActive := parts[2]
+							if _, ok := player.Pokemons[newActive]; ok {
+								player.Active = newActive
+								conn.WriteToUDP([]byte("@changed "+newActive), addr)
+								game.Current = (game.Current + 1) % len(game.TurnOrder)
+							} else {
+								conn.WriteToUDP([]byte("ERROR|Invalid Pokémon"), addr)
+							}
+						}
+					}
+				}
+			case "@list":
+				sendMessage("@pokemonlist"+formatPokemonList(), addr, conn)
 			default:
 				sendMessage("Invalid command", addr, conn)
-
-				// case "@attack":
-				// 	if players[senderName].isInBattle() {
-				// 		attack()
-				// 	}
-				// case "@change":
-				// 	if players[senderName].isInBattle() {
-				// 		temp := parts[1]
-				// 		nextPart := strings.SplitN(temp, " ", 2)
-				// 		pokemonID := nextPart[0]
-				// 		changePokemon(pokemonID)
-				// 	}
-				// case "@surrender":
-				// 	handleSurrender(senderName, conn)
 			}
 		}
-	}
-	if strings.HasPrefix(message, "|") {
-		gameState.mu.Lock()
-		defer gameState.mu.Unlock()
-		parts := strings.Split(message, "|")
-
-		senderName := getPlayernameByAddr(addr) // Get sender's name
-
-		cmd, id := parts[0], parts[1]
-
-		switch cmd {
-		case "JOIN":
-			conn.WriteToUDP([]byte("POKEMON_LIST|"+formatPokemonList()), addr)
-		case "CHOOSE":
-			if len(parts) < 5 {
-				conn.WriteToUDP([]byte("ERROR|Invalid choose command"), addr)
-				return
-			}
-			if _, exists := gameState.Games[id]; !exists {
-				pokemons := make(map[string]PlayerPokemon)
-				for i := 2; i < 5; i++ {
-					for _, p := range availablePokemons {
-						if p.Name == parts[i] {
-							pokemons[parts[i]] = p
-							break
-						}
-					}
-				}
-				battlePlayer := &Player{Name: senderName, Pokemons: pokemons, Active: parts[2]}
-				gameState.Games[id] = &Game{
-					TurnOrder: []string{id},
-					Current:   0,
-					Players:   map[string]*Player{id: battlePlayer},
-					Status:    "waiting",
-				}
-				conn.WriteToUDP([]byte("CHOSEN|"+id), addr)
-			}
-		case "INVITE":
-			if len(parts) == 3 {
-				inviteeID := parts[2]
-				if game, exists := gameState.Games[id]; exists && game.Status == "waiting" {
-					game.Status = "inviting"
-					game.TurnOrder = append(game.TurnOrder, inviteeID)
-					conn.WriteToUDP([]byte("INVITED|"+inviteeID), addr)
-				} else {
-					conn.WriteToUDP([]byte("ERROR|Cannot invite player"), addr)
-				}
-			}
-		case "ACCEPT":
-			if len(parts) == 3 {
-				inviterID := parts[2]
-				if game, ok := gameState.Games[inviterID]; ok && game.Status == "inviting" && len(game.TurnOrder) == 2 {
-					player := game.Players[game.TurnOrder[0]]
-					game.Players[id] = &Player{Name: senderName, Pokemons: player.Pokemons, Active: player.Active}
-					game.Status = "active"
-					conn.WriteToUDP([]byte("START|"+inviterID), addr)
-					conn.WriteToUDP([]byte("START|"+id), addr)
-				} else {
-					conn.WriteToUDP([]byte("ERROR|Invalid invitation"), addr)
-				}
-			}
-		case "ATTACK":
-			for _, game := range gameState.Games {
-				if player, ok := game.Players[id]; ok {
-					if game.TurnOrder[game.Current] != id {
-						conn.WriteToUDP([]byte("ERROR|Not your turn"), addr)
-						return
-					}
-					opponentID := game.TurnOrder[(game.Current+1)%len(game.TurnOrder)]
-					if opponent, ok := game.Players[opponentID]; ok {
-						opponentPokemon := opponent.Pokemons[opponent.Active]
-						opponentPokemon.Hp -= player.Pokemons[player.Active].Atk
-						opponent.Pokemons[opponent.Active] = opponentPokemon // Reassign modified Pokémon back to map
-						if opponentPokemon.Hp <= 0 {
-							conn.WriteToUDP([]byte("WIN|"+id), addr)
-						} else {
-							conn.WriteToUDP([]byte("ATTACKED|"+id), addr)
-							game.Current = (game.Current + 1) % len(game.TurnOrder)
-						}
-					}
-				}
-			}
-		case "CHANGE":
-			for _, game := range gameState.Games {
-				if player, ok := game.Players[id]; ok {
-					if game.TurnOrder[game.Current] != id {
-						conn.WriteToUDP([]byte("ERROR|Not your turn"), addr)
-						return
-					}
-					if len(parts) == 3 {
-						newActive := parts[2]
-						if _, ok := player.Pokemons[newActive]; ok {
-							player.Active = newActive
-							conn.WriteToUDP([]byte("CHANGED|"+newActive), addr)
-							game.Current = (game.Current + 1) % len(game.TurnOrder)
-						} else {
-							conn.WriteToUDP([]byte("ERROR|Invalid Pokémon"), addr)
-						}
-					}
-				}
-			}
-		}
+	} else {
+		sendMessage("Invalid command", addr, conn)
 	}
 }
 
@@ -402,26 +390,25 @@ func loadPokemonData(filename string) error {
 		return err
 	}
 	var pokemons struct {
-		PlayerPokemons []PlayerPokemon
+		Pokemons []PlayerPokemon `json:"playerpokemons"`
 	}
 	if err := json.Unmarshal(data, &pokemons); err != nil {
 		return err
 	}
-	availablePokemons = pokemons.PlayerPokemons
+	availablePokemons = pokemons.Pokemons
 	return nil
 }
 
 func formatPokemonList() string {
 	var sb strings.Builder
 	for _, p := range availablePokemons {
-		sb.WriteString(fmt.Sprintf("%s (HP: %d, Attack: %d)", p.Name, p.Hp, p.Atk))
-
+		sb.WriteString(fmt.Sprintf("%s (HP: %d, Attack: %d)\n", p.Name, p.Hp, p.Atk))
 	}
 	return sb.String()
 }
 
 func isInBattle(p string) bool {
-	_, exists := inBattlePlayers[p]
+	_, exists := inBattleWith[p]
 	if !exists {
 		return false
 	} else {
