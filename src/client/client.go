@@ -80,6 +80,7 @@ func receiveMessages(addr *net.UDPAddr, conn *net.UDPConn) {
 		// Check if the user wants to quit
 		if strings.Contains(response, "Goodbye") {
 			fmt.Println(string(buffer[:n]))
+			delete(players, addr)
 			os.Exit(0)
 			break
 		}
