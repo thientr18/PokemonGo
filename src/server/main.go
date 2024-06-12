@@ -195,168 +195,239 @@ func handleMessage(message string, addr *net.UDPAddr, conn *net.UDPConn) {
 					break
 				} else {
 					privateMessage := senderName + " (private): " + nextPart[1]
-					sendMessage(privateMessage, recipient, conn)
+					sendMessage(privateMessage, players[receiver].Addr, conn)
 				}
-			} else {
-				sendMessage("Cannot chat in the battle!\nSend your next action:", senderName, conn)
-			}
-		case "@battle":
-			if players[senderName].isInBattle() {
-				sendMessage("You are already in a battle!", senderName, conn)
-				break
-			}
-			temp := parts[1]
-			nextPart := strings.SplitN(temp, " ", 2)
-			opponent := nextPart[0]
-			if checkExistedPlayer(opponent) {
-				sendMessage("Error: Opponent did not exist in the server!", senderName, conn)
-				break
-			}
-			if players[opponent].isInBattle() {
-				sendMessage("Error: Opponent is already in a battle!", senderName, conn)
-				break
-			}
-			battleRequest := "Player '" + senderName + "' requests you a pokemon battle!"
-			sendMessage(battleRequest, opponent, conn)
-		case "@accept":
-			temp := parts[1]
-			nextPart := strings.SplitN(temp, " ", 2)
-			opponent := nextPart[0]
-			startBattle(senderName, opponent, conn)
-		case "@deny":
-			temp := parts[1]
-			nextPart := strings.SplitN(temp, " ", 2)
-			opponent := nextPart[0]
-			deniedMessage := "Your battle request to  '" + opponent + "' was denied!"
-			sendMessage(deniedMessage, opponent, conn)
-		case "@pick":
-			if !players[senderName].isInBattle() {
-				sendMessage("Invalid command", senderName, conn)
-				break
-			}
-			temp := parts[1]
-			nextPart := strings.SplitN(temp, " ", 2)
-			pickPokemon(senderName, nextPart[0], conn)
-		case "@surrender":
-			handleSurrender(senderName, conn)
-		default:
-			sendMessage("Invalid command", senderName, conn)
-		}
-	} else {
-		sendMessage("Invalid command format", getPlayernameByAddr(addr), conn)
-	}
-}
+			case "@battle":
+				if len(parts) < 2 {
+					sendMessage("Invalid command", addr, conn)
+					break
+				}
 
-func (p *Player) isInBattle() bool {
-	return p.Battle != nil
-}
+				temp := parts[1]
+				nextPart := strings.SplitN(temp, " ", 2)
+				opponent := nextPart[0]
 
-func startBattle(player1, player2 string, conn *net.UDPConn) {
-	battleID := player1 + "-" + player2
-	battle := &Battle{
-		Player1: player1,
-		Player2: player2,
-		Turn:    player1,
-	}
-	battles[battleID] = battle
-	players[player1].Battle = battle
-	players[player2].Battle = battle
+				if !checkExistedPlayer(opponent) {
+					sendMessage("Error: Opponent did not exist in the server!", addr, conn)
+					break
+				}
+				if isInBattle(opponent) {
+					sendMessage("Error: Opponent is already in a battle!", addr, conn)
+					break
+				}
 
-	sendMessage("Battle started between "+player1+" and "+player2+"!", player1, conn)
-	sendMessage("Battle started between "+player1+" and "+player2+"!", player2, conn)
-	sendMessage(player1+" picks first pokemon!", player1, conn)
-	sendMessage(player1+" picks first pokemon!", player2, conn)
-}
+				players[senderName].battleRequestSends[opponent] = senderName
+				players[opponent].battleRequestReceives[senderName] = opponent
 
-func pickPokemon(playerName, pokemonID string, conn *net.UDPConn) {
-	player := players[playerName]
-	if len(player.Pokemons) < 3 {
-		for _, p := range player.Pokemons {
-			if fmt.Sprintf("%s", p.ID) == pokemonID {
-				player.Pokemons = append(player.Pokemons, PlayerPokemon{Name: p.Name, ID: p.ID, Level: 1, Exp: 0}) // batle.pokemon = append
-				sendMessage("You picked "+p.Name, playerName, conn)
-				break
+				gameState.Battles[senderName] = &Battle{
+					TurnOrder:      []string{senderName, opponent},
+					Current:        0,
+					Players:        map[string]*Player{},
+					ActivePokemons: map[string]BattlePokemon{},
+					Status:         "inviting",
+				}
+
+				battleRequestMessage := "Player '" + senderName + "' requests you a pokemon battle!"
+				sendMessage(battleRequestMessage, players[opponent].Addr, conn)
+			case "@accept":
+				if len(parts) < 2 {
+					sendMessage("Invalid command", addr, conn)
+					break
+				}
+
+				temp := parts[1]
+				nextPart := strings.SplitN(temp, " ", 2)
+				opponent := nextPart[0]
+
+				if players[senderName].battleRequestReceives[opponent] == senderName &&
+					players[opponent].battleRequestSends[senderName] == opponent {
+					sendMessage("You accepted a battle with player '"+opponent+"'", addr, conn)
+					sendMessage("@accepted_battle", addr, conn)
+
+					sendMessage("Your battle request with player '"+senderName+"' is accepted!", players[opponent].Addr, conn)
+					sendMessage("@accepted_battle", players[opponent].Addr, conn)
+
+					inBattleWith[senderName] = opponent
+					inBattleWith[opponent] = senderName
+
+					delete(players[opponent].battleRequestSends, senderName)
+					delete(players[senderName].battleRequestReceives, opponent)
+
+					game := gameState.Battles[opponent]
+					game.Players[senderName] = gameState.Players[senderName]
+					game.Status = "waiting"
+				} else {
+					sendMessage("Invalid acception! (WRONG opppent name or NOT RECEIVES battle request from this opponent)", addr, conn)
+				}
+			case "@deny":
+				if len(parts) < 2 {
+					sendMessage("Invalid command", addr, conn)
+					break
+				}
+
+				temp := parts[1]
+				nextPart := strings.SplitN(temp, " ", 2)
+				opponent := nextPart[0]
+
+				if players[senderName].battleRequestReceives[opponent] == senderName &&
+					players[opponent].battleRequestSends[senderName] == opponent {
+					delete(players[opponent].battleRequestSends, senderName)
+					delete(players[senderName].battleRequestReceives, opponent)
+
+					sendMessage("You denied a battle with player '"+opponent+"'", addr, conn)
+					sendMessage("Your battle request to player '"+senderName+"' was dinied!", players[opponent].Addr, conn)
+				} else {
+					sendMessage("Invalid acception! (WRONG opppent name or NOT RECEIVES battle request from this opponent)", addr, conn)
+				}
+			case "@list":
+				sendMessage("@pokemon_list"+formatPokemonList(), addr, conn)
+			default:
+				sendMessage("Invalid command 1", addr, conn)
 			}
-		}
-	} else {
-		sendMessage("You have already picked 3 Pokemons!", playerName, conn)
-	}
-
-	if len(player.Pokemons) == 3 {
-		opponent := player.Battle.Player1
-		if player.Battle.Player1 == playerName {
-			opponent = player.Battle.Player2
-		}
-		if len(players[opponent].Pokemons) == 3 {
-			startBattle(playerName, opponent, conn)
 		} else {
-			sendMessage("Waiting for opponent to pick Pokemons.", playerName, conn)
+			switch command {
+			case "@all":
+				sendMessage("Cannot chat all in the battle!\nSend your next action:", addr, conn)
+			case "@quit":
+				delete(players, senderName)
+				fmt.Printf("User '%s' left\n", senderName)
+				sendMessage("Goodbye '"+senderName+"'!", addr, conn)
+				// surrentder()
+			case "@private":
+				if len(parts) < 2 {
+					sendMessage("Invalid command", addr, conn)
+					break
+				}
+
+				temp := parts[1]
+				nextPart := strings.SplitN(temp, " ", 2)
+				receiver := nextPart[0]
+				if receiver != inBattleWith[senderName] {
+					sendMessage("Cannot chat with other players!", addr, conn)
+					break
+				} else {
+					privateMessage := senderName + " (private): " + nextPart[1]
+					sendMessage(privateMessage, players[receiver].Addr, conn)
+				}
+			case "@battle":
+				sendMessage("You are already in a battle!", addr, conn)
+				break
+			case "@accept":
+				sendMessage("You are already in a battle!", addr, conn)
+				break
+			case "@deny":
+				if len(parts) < 2 {
+					sendMessage("Invalid command", addr, conn)
+					break
+				}
+
+				temp := parts[1]
+				nextPart := strings.SplitN(temp, " ", 2)
+				opponent := nextPart[0]
+
+				if players[senderName].battleRequestReceives[opponent] == senderName &&
+					players[opponent].battleRequestSends[senderName] == opponent {
+					delete(players[opponent].battleRequestSends, senderName)
+					delete(players[senderName].battleRequestReceives, opponent)
+
+					sendMessage("You denied a battle with player '"+opponent+"'", addr, conn)
+					sendMessage("Your battle request to player '"+senderName+"' was dinied!", players[opponent].Addr, conn)
+				} else {
+					sendMessage("Invalid acception! (WRONG opppent name or NOT RECEIVES battle request from this opponent)", addr, conn)
+				}
+			case "@pick":
+				if len(parts) != 4 {
+					sendMessage("Invalid pokemons selection!", addr, conn)
+					break
+				}
+				if game, exists := gameState.Battles[senderName]; exists && game.Status == "waiting" {
+					for i := 1; i < 4; i++ {
+						chosen := parts[i] // choose: Pokemon picked
+						if p, ok := gameState.Players[senderName].BattlePokemon[chosen]; ok {
+							game.ActivePokemons[senderName+"_"+chosen] = BattlePokemon{Name: p.Name,
+								ID:    p.ID,
+								Level: p.Level,
+								Exp:   p.Exp,
+								Hp:    p.Hp,
+								Atk:   p.Atk,
+								Def:   p.Def,
+								SpAtk: p.SpAtk,
+								SpDef: p.SpDef,
+								Speed: p.Speed}
+						} else {
+							sendMessage("Invalid pokemons selection!", addr, conn)
+							break
+						}
+					}
+					if len(game.ActivePokemons) == 6 { // Both players have chosen their Pokémon
+						game.Status = "active"
+						sendMessage("@pokemon_start_battle", addr, conn)
+					} else {
+						sendMessage("@pokemon_chosen", addr, conn)
+					}
+				} else {
+					sendMessage("No active game found", addr, conn)
+				}
+			case "@attack": // Ngân sửa
+				for _, game := range gameState.Battles {
+					if _, ok := game.Players[senderName]; ok {
+						if game.TurnOrder[game.Current] != senderName { // turn based
+							sendMessage("Not your turn!", addr, conn)
+						}
+
+						opponentID := game.TurnOrder[(game.Current+1)%len(game.TurnOrder)] // len = 2, chưa hiẻu lắm nhưng nếu attack thì sẽ set cái TurnOrder cho đối thủ
+						if _, ok := game.Players[opponentID]; ok {
+
+							activePlayer := game.ActivePokemons[senderName+"_"+game.TurnOrder[game.Current]]
+
+							activeOpponent := game.ActivePokemons[opponentID+"_"+game.TurnOrder[(game.Current+1)%len(game.TurnOrder)]]
+
+							activeOpponent.Hp -= activePlayer.Atk
+
+							game.ActivePokemons[opponentID+"_"+game.TurnOrder[(game.Current+1)%len(game.TurnOrder)]] = activeOpponent
+
+							if activeOpponent.Hp <= 0 {
+
+								conn.WriteToUDP([]byte("WIN|"+senderName), addr)
+							} else {
+								conn.WriteToUDP([]byte("ATTACKED|"+senderName), addr)
+								game.Current = (game.Current + 1) % len(game.TurnOrder) // Change turn after attack
+							}
+						}
+					}
+				}
+			case "@change":
+				for _, game := range gameState.Battles {
+					if player, ok := game.Players[senderName]; ok {
+						if game.TurnOrder[game.Current] != senderName {
+							conn.WriteToUDP([]byte("ERROR|Not your turn"), addr)
+							return
+						}
+						if len(parts) == 3 {
+							newActive := parts[2]
+							if _, ok := player.Pokemons[newActive]; ok {
+								game.TurnOrder[game.Current] = newActive
+								conn.WriteToUDP([]byte("CHANGED|"+newActive), addr)
+								game.Current = (game.Current + 1) % len(game.TurnOrder)
+							} else {
+								conn.WriteToUDP([]byte("ERROR|Invalid Pokémon"), addr)
+							}
+						}
+					}
+				}
+			case "@y":
+				sendMessage("@pokemon_list_pick"+formatPokemonList(), addr, conn)
+			case "@n":
+
+				sendMessage("@pokemon_pick", addr, conn)
+			default:
+				sendMessage("Invalid command 2", addr, conn)
+			}
 		}
+	} else {
+		fmt.Println("Invalid command 3")
+		sendMessage("Invalid command 3", addr, conn)
 	}
-}
-
-func getPickedPokemons(playerName string) []PlayerPokemon {
-	pickedPokemons := make([]PlayerPokemon, 0)
-	player, ok := players[playerName]
-	if !ok {
-		return pickedPokemons
-	}
-	for _, pokemon := range player.Pokemons {
-		pickedPokemons = append(pickedPokemons, pokemon)
-	}
-	return pickedPokemons
-}
-
-func checkSpeed(pokemon1, pokemon2 string, conn *net.UDPConn) string {
-
-	return ""
-}
-
-func handleBattle(player1, player2 string, conn *net.UDPConn) {
-	battleID := player1 + "-" + player2
-	battle := &Battle{
-		Player1: player1,
-		Player2: player2,
-		Turn:    player1,
-	}
-	battles[battleID] = battle
-	players[player1].Battle = battle
-	players[player2].Battle = battle
-
-	sendMessage("Battle started between "+player1+" and "+player2+"!", player1, conn)
-	sendMessage("Battle started between "+player1+" and "+player2+"!", player2, conn)
-	sendMessage(player1+" picks first pokemon!", player1, conn)
-	sendMessage(player1+" picks first pokemon!", player2, conn)
-}
-
-func handleSurrender(playerName string, conn *net.UDPConn) {
-	player := players[playerName]
-	if player.Battle == nil {
-		sendMessage("You are not in a battle!", playerName, conn)
-		return
-	}
-
-	opponentName := player.Battle.Player1
-	if player.Battle.Player1 == playerName {
-		opponentName = player.Battle.Player2
-	}
-
-	totalExp := 0
-	for _, p := range player.Pokemons {
-		totalExp += p.Exp
-	}
-	expShare := totalExp / 3
-
-	for i := range players[opponentName].Pokemons {
-		players[opponentName].Pokemons[i].Exp += expShare
-	}
-
-	sendMessage("You surrendered! "+opponentName+" wins the battle!", playerName, conn)
-	sendMessage(playerName+" surrendered! You win the battle!", opponentName, conn)
-
-	player.Battle = nil
-	players[opponentName].Battle = nil
-	delete(battles, player.Battle.Player1+"-"+player.Battle.Player2)
 }
 
 func loadPokemonData(filename string) error {
