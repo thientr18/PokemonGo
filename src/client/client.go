@@ -120,6 +120,11 @@ func receiveMessages(addr *net.UDPAddr, conn *net.UDPConn) {
 			continue
 		}
 
+		if strings.Contains(response, "@changed") {
+			fmt.Println("Pokémon picked successfully! Now is the oppenonent's turn!")
+			continue
+		}
+
 		if strings.Contains(response, "@win") {
 			fmt.Println("You win!")
 			continue
