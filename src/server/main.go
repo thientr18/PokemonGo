@@ -6,61 +6,111 @@ import (
 	"io/ioutil"
 	"net"
 	"strings"
+	"sync"
 )
 
 const (
 	HOST        = "localhost"
 	PORT        = "8080"
 	TYPE        = "udp"
-	pokedexData = "src\\JSON\\pokedex.json"
+	pokedexData = "src\\database\\pokedex.json"
 )
 
-type Pokemon struct {
-	Name      string `json:"name"`
-	PokedexID int    `json:"id"`
+type (
+	Pokemon struct {
+		Id       string   `json:"ID"`
+		Name     string   `json:"Name"`
+		Types    []string `json:"types"`
+		Link     string   `json:"URL"`
+		PokeInfo PokeInfo `json:"Poke-Information"`
+	}
+
+	PokeInfo struct {
+		Hp    int `json:"HP"`
+		Atk   int `json:"ATK"`
+		Def   int `json:"DEF"`
+		SpAtk int `json:"Sp.Atk"`
+		SpDef int `json:"Sp.Def"`
+		Speed int `json:"Speed"`
+	}
+
+	PlayerPokemon struct { // store pokemmon that a player holding
+		Name  string `json:"Name"`
+		ID    string
+		Level int
+		Exp   int
+		Hp    int `json:"HP"`
+		Atk   int `json:"ATK"`
+		Def   int `json:"DEF"`
+		SpAtk int `json:"Sp.Atk"`
+		SpDef int `json:"Sp.Def"`
+		Speed int `json:"Speed"`
+	}
+
+	Player struct {
+		Name                  string
+		Addr                  *net.UDPAddr
+		Pokemons              map[string]PlayerPokemon
+		BattlePokemon         map[string]BattlePokemon
+		battleRequestSends    map[string]string // store number of request that a player send: 'map[receivers]sender'
+		battleRequestReceives map[string]string // store number of request that a player get: 'map[senders]receiver'
+		Active                string
+	}
+
+	BattlePokemon struct {
+		Name  string `json:"Name"`
+		ID    string
+		Level int
+		Exp   int
+		Hp    int `json:"HP"`
+		Atk   int `json:"ATK"`
+		Def   int `json:"DEF"`
+		SpAtk int `json:"Sp.Atk"`
+		SpDef int `json:"Sp.Def"`
+		Speed int `json:"Speed"`
+	}
+
+	Battle struct {
+		Players        map[string]*Player
+		ActivePokemons map[string]BattlePokemon // Store active Pokemons in the battle
+		TurnOrder      []string
+		Current        int
+		Status         string // "waiting", "inviting", "active"
+	}
+
+	GameState struct {
+		mu      sync.Mutex
+		Battles map[string]*Battle
+		Players map[string]*Player
+	}
+)
+
+var gameState = GameState{
+	Battles: make(map[string]*Battle),
+	Players: make(map[string]*Player),
 }
 
-type PlayerPokemon struct {
-	Name  string
-	ID    string
-	Level int
-	Exp   int
-}
+var pokedex PokeInfo // pokedex
 
-type Type struct {
-	Name   string   `json:"name"`
-	Effect []string `json:"effectiveAgainst"`
-	Weak   []string `json:"weakAgainst"`
-}
+var players = make(map[string]*Player) // list of player
 
-type Pokedex struct {
-	Types    []Type    `json:"types"`
-	Pokemons []Pokemon `json:"pokemons"`
-}
+var inBattleWith = make(map[string]string) // check player is in battle or not
 
-type Player struct {
-	Name     string
-	Addr     *net.UDPAddr
-	Pokemons []PlayerPokemon
-	Battle   *Battle
-}
+var availablePokemons []PlayerPokemon // store pokemons of player | load data failed
 
-type Battle struct {
-	Player1 string
-	Player2 string
-	Turn    string
-}
-
-var players = make(map[string]*Player)
-var battles = make(map[string]*Battle)
-var pokedex Pokedex
+var BattlePokemons []BattlePokemon // chưa load data
 
 func main() {
 	// Load the pokedex data from the JSON file
 	err := loadPokedex(pokedexData)
 	if err != nil {
 		fmt.Println("Error loading pokedex data:", err)
-		return
+
+	}
+
+	// Load the pokedex data from the JSON file
+	if err := loadPokemonData("test\\pokemon_data.json"); err != nil {
+		panic(err)
 	}
 
 	udpAddr, err := net.ResolveUDPAddr(TYPE, HOST+":"+PORT)
@@ -88,44 +138,60 @@ func main() {
 		}
 
 		message := string(buffer[:n])
-		handleMessage(message, addr, conn)
+		go handleMessage(message, addr, conn)
 	}
 }
 
 func handleMessage(message string, addr *net.UDPAddr, conn *net.UDPConn) {
+	gameState.mu.Lock()
+	defer gameState.mu.Unlock()
+
+	fmt.Println(message)
+
 	if strings.HasPrefix(message, "@") {
 		parts := strings.SplitN(message, " ", 2)
 		command := parts[0]
 		senderName := getPlayernameByAddr(addr) // Get sender's name
 
-		switch command {
-		case "@join":
-			if !checkExistedPlayer(parts[1]) {
-				sendMessage("duplicated-username", senderName, conn)
-			} else {
-				username := parts[1]
-				players[username] = &Player{Name: username, Addr: addr}
-				fmt.Printf("User '%s' joined\n", username)
-				sendMessage("Welcome to the chat, "+username+"!", username, conn)
-			}
-		case "@all":
-			if !players[senderName].isInBattle() {
+		if !isInBattle(senderName) {
+			switch command {
+			case "@join":
+				if len(parts) < 2 {
+					sendMessage("Invalid command", addr, conn)
+					break
+				}
+				if checkExistedPlayer(parts[1]) {
+					sendMessage("duplicated_username", addr, conn)
+				} else if checkExistedPlayerByAddr(addr) {
+					sendMessage("Your address are exsisting in the server", addr, conn)
+				} else {
+					username := parts[1]
+					players[username] = &Player{
+						Name:                  username,
+						Addr:                  addr,
+						battleRequestSends:    make(map[string]string),
+						battleRequestReceives: make(map[string]string),
+					}
+					fmt.Printf("User '%s' joined\n", username)
+					sendMessage("Welcome to the chat '"+username+"'!", addr, conn)
+				}
+			case "@all":
 				broadcastMessage(parts[1], senderName, conn) // Pass sender's name
-			} else {
-				sendMessage("Cannot chat in the battle!\nSend your next action:", senderName, conn)
-			}
-		case "@quit":
-			delete(players, senderName)
-			fmt.Printf("User '%s' left\n", senderName)
-			sendMessage("Goodbye, "+senderName+"!", senderName, conn)
-			// surrentder()
-		case "@private":
-			if !players[senderName].isInBattle() {
+			case "@quit":
+				delete(players, senderName)
+				fmt.Printf("User '%s' left\n", senderName)
+				sendMessage("Goodbye '"+senderName+"'!", addr, conn)
+			case "@private":
+				if len(parts) < 2 {
+					sendMessage("Invalid command", addr, conn)
+					break
+				}
+
 				temp := parts[1]
 				nextPart := strings.SplitN(temp, " ", 2)
-				recipient := nextPart[0]
-				if checkExistedPlayer(recipient) {
-					sendMessage("Error: Recipient did not exist in the server!", senderName, conn)
+				receiver := nextPart[0]
+				if !checkExistedPlayer(receiver) {
+					sendMessage("Error: Receiver did not exist in the server!", addr, conn)
 					break
 				} else {
 					privateMessage := senderName + " (private): " + nextPart[1]
@@ -264,27 +330,21 @@ func handleBattle(player1, player2 string, conn *net.UDPConn) {
 }
 
 func handleSurrender(playerName string, conn *net.UDPConn) {
-
 	player := players[playerName]
-
 	if player.Battle == nil {
-
 		sendMessage("You are not in a battle!", playerName, conn)
 		return
 	}
 
 	opponentName := player.Battle.Player1
-
 	if player.Battle.Player1 == playerName {
 		opponentName = player.Battle.Player2
 	}
 
-	// pick 3 pokemon
 	totalExp := 0
-	for i := 0; i < 3 && i < len(player.Pokemons); i++ {
-		totalExp += player.Pokemons[i].Exp
+	for _, p := range player.Pokemons {
+		totalExp += p.Exp
 	}
-
 	expShare := totalExp / 3
 
 	for i := range players[opponentName].Pokemons {
@@ -296,34 +356,47 @@ func handleSurrender(playerName string, conn *net.UDPConn) {
 
 	player.Battle = nil
 	players[opponentName].Battle = nil
-
-	delete(battles, player.Battle.Player1+" and "+player.Battle.Player2)
+	delete(battles, player.Battle.Player1+"-"+player.Battle.Player2)
 }
 
-func loadPokedex(filename string) error {
+func loadPokemonData(filename string) error {
 	data, err := ioutil.ReadFile(filename)
 	if err != nil {
 		return err
 	}
-	return json.Unmarshal(data, &pokedex)
+	var pokemons struct {
+		Pokemons []PlayerPokemon `json:"playerpokemons"`
+	}
+	if err := json.Unmarshal(data, &pokemons); err != nil {
+		return err
+	}
+	availablePokemons = pokemons.Pokemons
+	return nil
 }
 
-func checkExistedPlayer(username string) bool {
-	_, exists := players[username]
+func formatPokemonList() string {
+	var sb strings.Builder
+	for _, p := range availablePokemons {
+		sb.WriteString(fmt.Sprintf("%s (HP: %d, Attack: %d)\n", p.Name, p.Hp, p.Atk))
+	}
+	return sb.String()
+}
+
+func isInBattle(p string) bool {
+	_, exists := inBattleWith[p]
 	if !exists {
-		return true
-	} else {
 		return false
+	} else {
+		return true
 	}
 }
 
-func getPlayernameByAddr(addr *net.UDPAddr) string {
-	for _, player := range players {
-		if player.Addr.IP.Equal(addr.IP) && player.Addr.Port == addr.Port {
-			return player.Name
-		}
-	}
-	return ""
+func (p *Player) chooseThreePokemons(pokemon string) {
+
+}
+
+func checkFirstTurn(player1 *net.UDPAddr, player2 *net.UDPAddr) {
+
 }
 
 func broadcastMessage(message string, senderName string, conn *net.UDPConn) {
@@ -338,10 +411,44 @@ func broadcastMessage(message string, senderName string, conn *net.UDPConn) {
 	}
 }
 
-func sendMessage(message, username string, conn *net.UDPConn) {
-	player := players[username]
-	_, err := conn.WriteToUDP([]byte(message), player.Addr)
+func sendMessage(message string, addr *net.UDPAddr, conn *net.UDPConn) {
+	_, err := conn.WriteToUDP([]byte(message), addr)
 	if err != nil {
-		fmt.Println("Error sending private message:", err)
+		fmt.Println("Error sending error message:", err)
 	}
+}
+
+func checkExistedPlayer(username string) bool {
+	_, exists := players[username]
+	if !exists {
+		return false
+	} else {
+		return true
+	}
+}
+
+func getPlayernameByAddr(addr *net.UDPAddr) string {
+	for _, player := range players {
+		if player.Addr.IP.Equal(addr.IP) && player.Addr.Port == addr.Port {
+			return player.Name
+		}
+	}
+	return ""
+}
+
+func checkExistedPlayerByAddr(addr *net.UDPAddr) bool {
+	for _, player := range players {
+		if player.Addr.IP.Equal(addr.IP) && player.Addr.Port == addr.Port {
+			return true
+		}
+	}
+	return false
+}
+
+func loadPokedex(filename string) error {
+	data, err := ioutil.ReadFile(filename)
+	if err != nil {
+		return err
+	}
+	return json.Unmarshal(data, &pokedex)
 }
