@@ -51,15 +51,23 @@ type (
 		Name                  string
 		Addr                  *net.UDPAddr
 		Pokemons              map[string]PlayerPokemon
+		BattlePokemon         map[string]BattlePokemon
 		battleRequestSends    map[string]string // store number of request that a player send: 'map[receivers]sender'
 		battleRequestReceives map[string]string // store number of request that a player get: 'map[senders]receiver'
 		Active                string
 	}
 
 	BattlePokemon struct {
-		Name string
-		HP   int
-		ATK  int
+		Name  string `json:"Name"`
+		ID    string
+		Level int
+		Exp   int
+		Hp    int `json:"HP"`
+		Atk   int `json:"ATK"`
+		Def   int `json:"DEF"`
+		SpAtk int `json:"Sp.Atk"`
+		SpDef int `json:"Sp.Def"`
+		Speed int `json:"Speed"`
 	}
 
 	Battle struct {
@@ -88,7 +96,9 @@ var players = make(map[string]*Player) // list of player
 
 var inBattleWith = make(map[string]string) // check player is in battle or not
 
-var availablePokemons []PlayerPokemon // store pokemons of player
+var availablePokemons []PlayerPokemon // store pokemons of player | load data failed
+
+var BattlePokemons []BattlePokemon // chưa load data
 
 func main() {
 	// Load the pokedex data from the JSON file
@@ -136,6 +146,8 @@ func handleMessage(message string, addr *net.UDPAddr, conn *net.UDPConn) {
 	gameState.mu.Lock()
 	defer gameState.mu.Unlock()
 
+	fmt.Println(message)
+
 	if strings.HasPrefix(message, "@") {
 		parts := strings.SplitN(message, " ", 2)
 		command := parts[0]
@@ -148,11 +160,10 @@ func handleMessage(message string, addr *net.UDPAddr, conn *net.UDPConn) {
 					sendMessage("Invalid command", addr, conn)
 					break
 				}
-
 				if checkExistedPlayer(parts[1]) {
 					sendMessage("duplicated_username", addr, conn)
 				} else if checkExistedPlayerByAddr(addr) {
-					break
+					sendMessage("Your address are exsisting in the server", addr, conn)
 				} else {
 					username := parts[1]
 					players[username] = &Player{
@@ -231,10 +242,10 @@ func handleMessage(message string, addr *net.UDPAddr, conn *net.UDPConn) {
 				if players[senderName].battleRequestReceives[opponent] == senderName &&
 					players[opponent].battleRequestSends[senderName] == opponent {
 					sendMessage("You accepted a battle with player '"+opponent+"'", addr, conn)
-					sendMessage("Battle Started!", addr, conn)
+					sendMessage("@accepted_battle", addr, conn)
 
 					sendMessage("Your battle request with player '"+senderName+"' is accepted!", players[opponent].Addr, conn)
-					sendMessage("Battle Started!", players[opponent].Addr, conn)
+					sendMessage("@accepted_battle", players[opponent].Addr, conn)
 
 					inBattleWith[senderName] = opponent
 					inBattleWith[opponent] = senderName
@@ -269,9 +280,9 @@ func handleMessage(message string, addr *net.UDPAddr, conn *net.UDPConn) {
 					sendMessage("Invalid acception! (WRONG opppent name or NOT RECEIVES battle request from this opponent)", addr, conn)
 				}
 			case "@list":
-				sendMessage("@pokemonlist"+formatPokemonList(), addr, conn)
+				sendMessage("@pokemon_list"+formatPokemonList(), addr, conn)
 			default:
-				sendMessage("Invalid command", addr, conn)
+				sendMessage("Invalid command 1", addr, conn)
 			}
 		} else {
 			switch command {
@@ -280,7 +291,7 @@ func handleMessage(message string, addr *net.UDPAddr, conn *net.UDPConn) {
 			case "@quit":
 				delete(players, senderName)
 				fmt.Printf("User '%s' left\n", senderName)
-				sendMessage("Goodbye, "+senderName+"!", addr, conn)
+				sendMessage("Goodbye '"+senderName+"'!", addr, conn)
 				// surrentder()
 			case "@private":
 				if len(parts) < 2 {
@@ -324,44 +335,59 @@ func handleMessage(message string, addr *net.UDPAddr, conn *net.UDPConn) {
 				} else {
 					sendMessage("Invalid acception! (WRONG opppent name or NOT RECEIVES battle request from this opponent)", addr, conn)
 				}
-			case "@choose":
+			case "@pick":
 				if len(parts) != 4 {
-					sendMessage("Invalid choose command", addr, conn)
+					sendMessage("Invalid pokemons selection!", addr, conn)
 					break
 				}
 				if game, exists := gameState.Battles[senderName]; exists && game.Status == "waiting" {
 					for i := 1; i < 4; i++ {
-						chosen := parts[i]
-						if p, ok := gameState.Players[senderName].Pokemons[chosen]; ok {
-							game.ActivePokemons[senderName+"_"+chosen] = BattlePokemon{Name: p.Name, HP: p.Hp, ATK: p.Atk} // Thêm ID
+						chosen := parts[i] // choose: Pokemon picked
+						if p, ok := gameState.Players[senderName].BattlePokemon[chosen]; ok {
+							game.ActivePokemons[senderName+"_"+chosen] = BattlePokemon{Name: p.Name,
+								ID:    p.ID,
+								Level: p.Level,
+								Exp:   p.Exp,
+								Hp:    p.Hp,
+								Atk:   p.Atk,
+								Def:   p.Def,
+								SpAtk: p.SpAtk,
+								SpDef: p.SpDef,
+								Speed: p.Speed}
 						} else {
-							sendMessage("Invalid Pokémon selection", addr, conn)
-							return
+							sendMessage("Invalid pokemons selection!", addr, conn)
+							break
 						}
 					}
 					if len(game.ActivePokemons) == 6 { // Both players have chosen their Pokémon
 						game.Status = "active"
-						conn.WriteToUDP([]byte("START|"+senderName), addr)
+						sendMessage("@pokemon_start_battle", addr, conn)
 					} else {
-						conn.WriteToUDP([]byte("CHOSEN|"+senderName), addr)
+						sendMessage("@pokemon_chosen", addr, conn)
 					}
 				} else {
-					conn.WriteToUDP([]byte("ERROR|No active game found"), addr)
+					sendMessage("No active game found", addr, conn)
 				}
-			case "@attack":
+			case "@attack": // Ngân sửa
 				for _, game := range gameState.Battles {
 					if _, ok := game.Players[senderName]; ok {
-						if game.TurnOrder[game.Current] != senderName {
-							conn.WriteToUDP([]byte("ERROR|Not your turn"), addr)
-							return
+						if game.TurnOrder[game.Current] != senderName { // turn based
+							sendMessage("Not your turn!", addr, conn)
 						}
-						opponentID := game.TurnOrder[(game.Current+1)%len(game.TurnOrder)]
+
+						opponentID := game.TurnOrder[(game.Current+1)%len(game.TurnOrder)] // len = 2, chưa hiẻu lắm nhưng nếu attack thì sẽ set cái TurnOrder cho đối thủ
 						if _, ok := game.Players[opponentID]; ok {
+
 							activePlayer := game.ActivePokemons[senderName+"_"+game.TurnOrder[game.Current]]
+
 							activeOpponent := game.ActivePokemons[opponentID+"_"+game.TurnOrder[(game.Current+1)%len(game.TurnOrder)]]
-							activeOpponent.HP -= activePlayer.ATK
+
+							activeOpponent.Hp -= activePlayer.Atk
+
 							game.ActivePokemons[opponentID+"_"+game.TurnOrder[(game.Current+1)%len(game.TurnOrder)]] = activeOpponent
-							if activeOpponent.HP <= 0 {
+
+							if activeOpponent.Hp <= 0 {
+
 								conn.WriteToUDP([]byte("WIN|"+senderName), addr)
 							} else {
 								conn.WriteToUDP([]byte("ATTACKED|"+senderName), addr)
@@ -389,14 +415,18 @@ func handleMessage(message string, addr *net.UDPAddr, conn *net.UDPConn) {
 						}
 					}
 				}
-			case "@list":
-				sendMessage("@pokemonlist"+formatPokemonList(), addr, conn)
+			case "@y":
+				sendMessage("@pokemon_list_pick"+formatPokemonList(), addr, conn)
+			case "@n":
+
+				sendMessage("@pokemon_pick", addr, conn)
 			default:
-				sendMessage("Invalid command", addr, conn)
+				sendMessage("Invalid command 2", addr, conn)
 			}
 		}
 	} else {
-		sendMessage("Invalid command", addr, conn)
+		fmt.Println("Invalid command 3")
+		sendMessage("Invalid command 3", addr, conn)
 	}
 }
 

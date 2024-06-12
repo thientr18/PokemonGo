@@ -108,6 +108,18 @@ func main() {
 		hehe := fmt.Sprintf("%s (HP: %d, Attack: %d)\n", p.Name, p.Hp, p.Atk)
 		fmt.Printf(hehe)
 	}
-	fmt.Println("USE FOR METHOD: ")
-	formatPokemonList()
+
+	inBattle["hehe"] = false
+	fmt.Println(checkInBattle("hehe"))
+}
+
+var inBattle = make(map[string]bool)
+
+func checkInBattle(s string) bool {
+	_, exists := inBattle[s]
+	if !exists {
+		return false
+	} else {
+		return true
+	}
 }

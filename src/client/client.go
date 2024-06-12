@@ -6,18 +6,20 @@ import (
 	"net"
 	"os"
 	"strings"
+	"sync"
 )
 
-var players = make(map[*net.UDPAddr]string)
+var inBattle = make(map[*net.UDPAddr]bool)
+var mu sync.Mutex
 
 func main() {
-	udpAddr, err := net.ResolveUDPAddr("udp", "localhost:8080")
+	addr, err := net.ResolveUDPAddr("udp", "localhost:8080")
 	if err != nil {
 		fmt.Println("Error resolving UDP address:", err)
 		return
 	}
 
-	conn, err := net.DialUDP("udp", nil, udpAddr)
+	conn, err := net.DialUDP("udp", nil, addr)
 	if err != nil {
 		fmt.Println("Error connecting to server:", err)
 		return
@@ -45,13 +47,12 @@ func main() {
 		if string(buffer[:n]) == "duplicated_username" {
 			fmt.Println("Duplicated username, choose other username!")
 		} else {
-			players[udpAddr] = username
 			fmt.Println(string(buffer[:n]))
 			break
 		}
 	}
 
-	go receiveMessages(udpAddr, conn)
+	go receiveMessages(addr, conn)
 
 	for {
 		text, _ := reader.ReadString('\n')
@@ -59,9 +60,9 @@ func main() {
 		_, err := conn.Write([]byte(text))
 		if err != nil {
 			fmt.Println("Error sending message:", err)
+			mu.Unlock()
 			return
 		}
-
 	}
 }
 
@@ -79,99 +80,65 @@ func receiveMessages(addr *net.UDPAddr, conn *net.UDPConn) {
 
 		// Check if the user wants to quit
 		if strings.Contains(response, "Goodbye") {
-			fmt.Println(string(buffer[:n]))
-			delete(players, addr)
+			fmt.Println(response)
 			os.Exit(0)
 			break
 		}
 
-		if strings.HasPrefix(response, "@pokemonlist") {
-			fmt.Print("Available pokemon:")
-			fmt.Println(strings.TrimPrefix(response, "@pokemonlist"))
-			break
+		if strings.HasPrefix(response, "@pokemon_list") {
+			fmt.Println("Your pokemons list: ")
+			fmt.Println(strings.TrimPrefix(response, "@pokemon_list"))
+			continue
 		}
 
-		if response == "Battle Started!" {
-			reader := bufio.NewReader(os.Stdin)
-
-			fmt.Println("Want to see your pokemons? \nYes[y]\nNo[n]")
-			list, _ := reader.ReadString('\n')
-			list = strings.TrimSpace(list)
-			if list == "y" {
-				n, _, err := conn.ReadFromUDP(buffer)
-				if err != nil {
-					panic(err)
-				}
-				response := string(buffer[:n])
-
-				fmt.Print("Available pokemon:")
-				fmt.Println(strings.TrimPrefix(response, "@pokemonlist"))
-			} else if list == "n" {
-				continue
-			} else {
-				fmt.Println("Invalid command")
-			}
-
-			fmt.Print("Choose your first pokemon: ")
-			pokemon1, _ := reader.ReadString('\n')
-			pokemon1 = strings.TrimSpace(pokemon1)
-
-			fmt.Print("Choose your second pokemon: ")
-			pokemon2, _ := reader.ReadString('\n')
-			pokemon2 = strings.TrimSpace(pokemon2)
-
-			fmt.Print("Choose your third pokemon: ")
-			pokemon3, _ := reader.ReadString('\n')
-			pokemon3 = strings.TrimSpace(pokemon3)
-
-			chooseMsg := fmt.Sprintf("@choose %s %s %s", pokemon1, pokemon2, pokemon3)
-			_, err := conn.Write([]byte(chooseMsg))
-			if err != nil {
-				panic(err)
-			}
-
-			n, _, err := conn.ReadFromUDP(buffer)
-			if err != nil {
-				panic(err)
-			}
-
-			response := string(buffer[:n])
-			if response == "@chosen"+players[addr] {
-				fmt.Println("pokemon chosen successfully! Waiting for battle...")
-
-				for {
-					fmt.Print("Enter command (@acttack/@change [pokemon]): ")
-					cmd, _ := reader.ReadString('\n')
-					cmd = strings.TrimSpace(cmd)
-
-					_, err := conn.Write([]byte(cmd + " " + players[addr]))
-					if err != nil {
-						panic(err)
-					}
-
-					n, _, err := conn.ReadFromUDP(buffer)
-					if err != nil {
-						panic(err)
-					}
-
-					response := string(buffer[:n])
-					fmt.Println("Response from server:", response)
-
-					if strings.HasPrefix(response, "@win") {
-						fmt.Println("You win!")
-						break
-					}
-					if strings.HasPrefix(response, "@lose") {
-						fmt.Println("You lose :<")
-						break
-					}
-				}
-			} else {
-				fmt.Println("Failed to choose pokemon:", response)
-			}
-			break
+		// Handle battle start
+		if strings.Contains(response, "@accepted_battle") {
+			fmt.Println("Battle Started!")
+			fmt.Println("See your pokemon list before selecting pokemons?\n[@y]: yes\n[@n]: no")
+			continue
 		}
 
-		fmt.Println(string(buffer[:n]))
+		if strings.HasPrefix(response, "@pokemon_list_pick") {
+			fmt.Println("Your pokemons list: ")
+			fmt.Println(strings.TrimPrefix(response, "@pokemon_list"))
+			fmt.Println("Choose your three pokemons for battle!\n(@pick pokemon1 pokemon2 pokemon3)")
+			continue
+		}
+
+		if strings.Contains(response, "@pokemon_pick") {
+			fmt.Println("Choose your three pokemons for battle!\n(@pick pokemon1 pokemon2 pokemon3)")
+			continue
+		}
+
+		if strings.Contains(response, "@pokemon_piked") {
+			fmt.Println("Pokémon picked successfully!\nWaiting your opponent...")
+			continue
+		}
+
+		if strings.Contains(response, "@pokemon_start_battle") {
+			fmt.Println("The battle begins! Faster pokemon moves first!")
+			continue
+		}
+
+		if strings.Contains(response, "@win") {
+			fmt.Println("You win!")
+			continue
+		}
+
+		if strings.Contains(response, "@lose") {
+			fmt.Println("You lose :<")
+			continue
+		}
+
+		fmt.Println(response)
+	}
+}
+
+func checkInBattle(addr *net.UDPAddr) bool {
+	_, exists := inBattle[addr]
+	if !exists {
+		return false
+	} else {
+		return true
 	}
 }
