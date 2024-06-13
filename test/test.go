@@ -54,7 +54,10 @@ type (
 	}
 
 	PlayerPokemon struct { // store pokemmon that a player holding
-		Owner       string   `json:"PlayerName"`
+		Owner          string           `json:"PlayerName"`
+		PlayerPokeInfo []PlayerPokeInfo `json:"Pokemons"`
+	}
+	PlayerPokeInfo struct { // store pokemmon that a player holding
 		Name        string   `json:"Name"`
 		ID          string   `json:"ID"`
 		Level       int      `json:"Level"`
@@ -68,7 +71,6 @@ type (
 		Speed       int      `json:"Speed"`
 		TypeDefense TypeDef  `json:"Type-Defenses"`
 	}
-
 	Player struct {
 		Name                  string
 		Pokemons              map[string]PlayerPokemon // string là pokemon ID
@@ -135,6 +137,17 @@ func main() {
 			fmt.Printf("Pokemon ID: %s, Name: %s, Level: %d, HP: %d\n", pokemon.ID, pokemon.Name, pokemon.Level, pokemon.Hp)
 		}
 	}
+
+	playerNamePoke := "thien"
+	playerPokemonsOne := findPlayerPokemonByPokeID(playerNamePoke, "#001")
+	if err != nil {
+		fmt.Println(err)
+	} else {
+		fmt.Printf("Pokémons of player %s:\n", playerNamePoke)
+
+		fmt.Printf("Pokemon ID: %s, Name: %s, Level: %d, HP: %d\n", playerPokemonsOne.ID, playerPokemonsOne.Name, playerPokemonsOne.Level, playerPokemonsOne.Hp)
+
+	}
 }
 
 func loadPlayerPokemons(filename string) error {
@@ -145,17 +158,17 @@ func loadPlayerPokemons(filename string) error {
 	return json.Unmarshal(data, &playersPokemons)
 }
 
-func findPlayerPokemonByPlayer(playerName string) []*PlayerPokemon {
-	var playerPokemons []PlayerPokemon
+func findPlayerPokemonByPlayer(playerName string) []PlayerPokeInfo {
+	var pokemon []PlayerPokeInfo
 	for _, p := range playersPokemons {
 		if p.Owner == playerName {
-			playerPokemons = append(playerPokemons, p)
+			pokemon = p.PlayerPokeInfo
 		}
 	}
-	return nil
+	return pokemon
 }
 
-func findPokemonByName(name string) *Pokemon {
+func findPokemonByNameO(name string) *Pokemon {
 	for _, p := range pokedex {
 		if p.Name == name {
 			return &p
@@ -170,4 +183,18 @@ func loadPokedex(filename string) error {
 		return err
 	}
 	return json.Unmarshal(data, &pokedex) // gán data vào pokedex
+}
+
+func findPlayerPokemonByPokeID(playerName string, idPoke string) PlayerPokeInfo {
+	var pokemon PlayerPokeInfo
+	for _, p := range playersPokemons {
+		if p.Owner == playerName {
+			for _, po := range p.PlayerPokeInfo {
+				if po.ID == idPoke {
+					pokemon = po
+				}
+			}
+		}
+	}
+	return pokemon
 }

@@ -85,6 +85,13 @@ func receiveMessages(conn *net.UDPConn) {
 			break
 		}
 
+		if strings.HasPrefix(response, "@pokemon_list_pick") {
+			fmt.Println("Your pokemons list: ")
+			fmt.Println(strings.TrimPrefix(response, "@pokemon_list_pick"))
+			fmt.Println("Choose your three pokemons for battle!\n(@pick pokemon1_ID pokemon2_ID pokemon3_ID)")
+			continue
+		}
+
 		if strings.HasPrefix(response, "@pokemon_list") {
 			fmt.Println("Your pokemons list: ")
 			fmt.Println(strings.TrimPrefix(response, "@pokemon_list"))
@@ -95,13 +102,6 @@ func receiveMessages(conn *net.UDPConn) {
 		if strings.Contains(response, "@accepted_battle") {
 			fmt.Println("Battle Started!")
 			fmt.Println("See your pokemon list before selecting pokemons?\n[@y]: yes\n[@n]: no")
-			continue
-		}
-
-		if strings.HasPrefix(response, "@pokemon_list_pick") {
-			fmt.Println("Your pokemons list: ")
-			fmt.Println(strings.TrimPrefix(response, "@pokemon_list"))
-			fmt.Println("Choose your three pokemons for battle!\n(@pick pokemon1_ID pokemon2_ID pokemon3_ID)")
 			continue
 		}
 
@@ -132,6 +132,11 @@ func receiveMessages(conn *net.UDPConn) {
 
 		if strings.Contains(response, "@lose") {
 			fmt.Println("You lose :<")
+			continue
+		}
+
+		if strings.Contains(response, "@pokedex") {
+			fmt.Println(strings.CutPrefix(response, "@pokedex"))
 			continue
 		}
 

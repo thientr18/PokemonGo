@@ -57,10 +57,24 @@ type (
 		Fairy    float32
 	}
 
+	Player struct {
+		Name                  string `json:"PlayerName"`
+		Addr                  *net.UDPAddr
+		Pokemons              map[string]PlayerPokemon // string là pokemon ID
+		BattlePokemon         map[string]BattlePokemon
+		battleRequestSends    map[string]string // store number of request that a player send: 'map[receivers]sender'
+		battleRequestReceives map[string]string // store number of request that a player get: 'map[senders]receiver'
+		Active                string
+		battleID              int64
+	}
+
 	PlayerPokemon struct { // store pokemmon that a player holding
-		Owner       string   `json:"PlayerName"`
-		Name        string   `json:"Name"`
+		Owner          string           `json:"PlayerName"`
+		PlayerPokeInfo []PlayerPokeInfo `json:"Pokemons"`
+	}
+	PlayerPokeInfo struct { // store pokemmon that a player holding
 		ID          string   `json:"ID"`
+		Name        string   `json:"Name"`
 		Level       int      `json:"Level"`
 		Exp         int      `json:"Exp"`
 		Types       []string `json:"types"`
@@ -71,17 +85,6 @@ type (
 		SpDef       int      `json:"Sp.Def"`
 		Speed       int      `json:"Speed"`
 		TypeDefense TypeDef  `json:"Type-Defenses"`
-	}
-
-	Player struct {
-		Name                  string `json:"PlayerName"`
-		Addr                  *net.UDPAddr
-		Pokemons              map[string]PlayerPokemon // string là pokemon ID
-		BattlePokemon         map[string]BattlePokemon
-		battleRequestSends    map[string]string // store number of request that a player send: 'map[receivers]sender'
-		battleRequestReceives map[string]string // store number of request that a player get: 'map[senders]receiver'
-		Active                string
-		battleID              int64
 	}
 
 	BattlePokemon struct {
@@ -268,9 +271,12 @@ func handleMessage(message string, addr *net.UDPAddr, conn *net.UDPConn) {
 					var id = getNanoTime()
 
 					gameStates[id] = &Battle{
-						battleID: id,
-						Players:  make(map[string]*Player),
-						Status:   "waiting",
+						battleID:       id,
+						Players:        make(map[string]*Player),
+						ActivePokemons: make(map[string]*BattlePokemon),
+						TurnOrder:      []string{},
+						Current:        0,
+						Status:         "waiting",
 					}
 
 					gameStates[id].Players[senderName] = players[senderName]
@@ -323,7 +329,17 @@ func handleMessage(message string, addr *net.UDPAddr, conn *net.UDPConn) {
 					sendMessage("Invalid acception! (WRONG opppent name or NOT RECEIVES battle request from this opponent)", addr, conn)
 				}
 			case "@list":
-				sendMessage("@pokemon_list"+formatPokemonList(), addr, conn)
+				// Find player Pokemons by player's name
+				playerPokemons := findPlayerPokemonByPlayer(senderName)
+				fmt.Printf("Pokémons of player %s:\n", senderName)
+				for _, pokemon := range playerPokemons {
+					str := fmt.Sprintf("Pokemon ID: %s, Name: %s, Level: %d, HP: %d\n", pokemon.ID, pokemon.Name, pokemon.Level, pokemon.Hp)
+					sendMessage("@pokemon_list"+str, addr, conn)
+				}
+
+			case "@pokedex":
+				parts = strings.Split(message, " ")
+				sendMessage("@pokedex"+pokedexScanner(parts[1]), addr, conn)
 			default:
 				sendMessage("Invalid command 1", addr, conn)
 			}
@@ -389,7 +405,10 @@ func handleMessage(message string, addr *net.UDPAddr, conn *net.UDPConn) {
 
 					for i := 1; i < 4; i++ {
 						chosen := strings.Split(message, " ")[i] // choose: Pokemon picked
-						if p, ok := gameStates[players[senderName].battleID].Players[senderName].Pokemons[chosen]; ok {
+						p := findPlayerPokemonByPokeID(senderName, chosen)
+						fmt.Println(p.Name)
+						fmt.Println(p.ID)
+						if p != nil {
 							gameStates[players[senderName].battleID].ActivePokemons[senderName+"_"+chosen] = &BattlePokemon{
 								Name:        p.Name,
 								ID:          p.ID,
@@ -450,7 +469,6 @@ func handleMessage(message string, addr *net.UDPAddr, conn *net.UDPConn) {
 
 							if activeOpponent.Hp <= 0 {
 								delete(game.ActivePokemons, opponentID+"_"+game.TurnOrder[(game.Current+1)%len(game.TurnOrder)])
-
 							}
 
 							if _, oke := game.ActivePokemons[opponentID]; oke {
@@ -485,67 +503,66 @@ func handleMessage(message string, addr *net.UDPAddr, conn *net.UDPConn) {
 					}
 				}
 
-			case "@surrender":
-				battle := gameStates[players[senderName].battleID]
+			// case "@surrender":
+			// 	battle := gameStates[players[senderName].battleID]
 
-				surrenderer, exists := battle.Players[senderName]
-				if !exists {
-					fmt.Println("Error: Surrenderer not found in the battle.")
-					return
-				}
+			// 	surrenderer, exists := battle.Players[senderName]
+			// 	if !exists {
+			// 		fmt.Println("Error: Surrenderer not found in the battle.")
+			// 		return
+			// 	}
 
-				var opponent *Player
-				for name, player := range battle.Players {
-					if name != senderName {
-						opponent = player
-						break
-					}
-				}
+			// 	var opponent *Player
+			// 	for name, player := range battle.Players {
+			// 		if name != senderName {
+			// 			opponent = player
+			// 			break
+			// 		}
+			// 	}
 
-				if opponent == nil {
-					fmt.Println("Error: No opponent found.")
-					return
-				}
+			// 	if opponent == nil {
+			// 		fmt.Println("Error: No opponent found.")
+			// 		return
+			// 	}
 
-				winner := opponent
+			// 	winner := opponent
 
-				battle.Status = "finished"
+			// 	battle.Status = "finished"
 
-				sendMessage("You surrendered. "+winner.Name+" wins!", surrenderer.Addr, conn)
-				sendMessage("Your opponent surrendered. You win!", opponent.Addr, conn)
+			// 	sendMessage("You surrendered. "+winner.Name+" wins!", surrenderer.Addr, conn)
+			// 	sendMessage("Your opponent surrendered. You win!", opponent.Addr, conn)
 
-				totalExp := 0
-				for _, pokemon := range surrenderer.Pokemons {
-					totalExp += pokemon.Exp //total exp of loser pokemon after picked
-				} //fix this??? but it is wrong logic
+			// 	totalExp := 0
+			// 	for _, pokemon := range surrenderer.Pokemons {
+			// 		totalExp += pokemon.Exp //total exp of loser pokemon after picked
+			// 	} //fix this??? but it is wrong logic
 
-				ExpToDistribute := totalExp / 3 //distribute three pokemon on loser team to winning team
-				//correct logic
+			// 	ExpToDistribute := totalExp / 3 //distribute three pokemon on loser team to winning team
+			// 	//correct logic
 
-				for _, pokemon := range winner.Pokemons {
-					pokemon.Exp += ExpToDistribute //total exp of winnder
-				} //correct logic
+			// 	for _, pokemon := range winner.Pokemons {
+			// 		pokemon.Exp += ExpToDistribute //total exp of winnder
+			// 	} //correct logic
 
-				fmt.Printf("%s's Pokemon after battle: \n", winner.Name)
-				for _, pokemon := range winner.Pokemons {
-					fmt.Printf("%d\n", pokemon.Exp)
-				}
+			// 	fmt.Printf("%s's Pokemon after battle: \n", winner.Name)
+			// 	for _, pokemon := range winner.Pokemons {
+			// 		fmt.Printf("%d\n", pokemon.Exp)
+			// 	}
 
-				delete(inBattleWith, senderName)
-				delete(inBattleWith, opponent.Name)
+			// 	delete(inBattleWith, senderName)
+			// 	delete(inBattleWith, opponent.Name)
 
-				fmt.Printf("Player '%s' surrendered. Player '%s' wins!\n", senderName, winner.Name)
-
-				//from here this code belongs to the method
-				// game, exists := gameState.Battles[senderName]
-				// if !exists {
-				// 	sendMessage("No active game found", addr, conn)
-				// 	break
-				// }
-				// game.Surrender(senderName)
+			// 	fmt.Printf("Player '%s' surrendered. Player '%s' wins!\n", senderName, winner.Name)
 
 			case "@y":
-				sendMessage("@pokemon_list_pick"+formatPokemonList(), addr, conn)
+				playerPokemons := findPlayerPokemonByPlayer(senderName)
+				fmt.Printf("Pokémons of player %s:\n", senderName)
+				var str string
+				for _, pokemon := range playerPokemons {
+					str += fmt.Sprintf("Pokemon ID: %s, Name: %s, Level: %d, HP: %d\n", pokemon.ID, pokemon.Name, pokemon.Level, pokemon.Hp)
+
+				}
+				sendMessage("@pokemon_list_pick"+str, addr, conn)
 			case "@n":
 				sendMessage("@pokemon_pick", addr, conn)
 			default:
@@ -558,6 +575,15 @@ func handleMessage(message string, addr *net.UDPAddr, conn *net.UDPConn) {
 	}
 }
 
+func loadPokedex(filename string) error {
+	data, err := ioutil.ReadFile(filename)
+	if err != nil {
+		return err
+	}
+	return json.Unmarshal(data, &pokedex) // gán data vào pokedex
+}
+
+// load data in playersPokemon.json
 func loadPokemonData(filename string) error {
 	data, err := ioutil.ReadFile(filename)
 	if err != nil {
@@ -569,8 +595,51 @@ func loadPokemonData(filename string) error {
 	if err := json.Unmarshal(data, &pokemons); err != nil {
 		return err
 	}
-	availablePokemons = pokemons.Pokemons
+	playersPokemons = pokemons.Pokemons
 	return nil
+}
+
+// find pokemon in a pokedex
+func findPokemonByNameOrID(name string) *Pokemon {
+	for _, p := range pokedex {
+		if p.Name == name || p.Id == name {
+			return &p
+		}
+	}
+	return nil
+}
+
+func findPlayerPokemonByPlayer(playerName string) []PlayerPokeInfo {
+	var pokemon []PlayerPokeInfo
+	for _, p := range playersPokemons {
+		if p.Owner == playerName {
+			pokemon = p.PlayerPokeInfo
+		}
+	}
+	return pokemon
+}
+
+func findPlayerPokemonByPokeID(playerName string, idPoke string) *PlayerPokeInfo {
+	for _, p := range playersPokemons {
+		if p.Owner == playerName {
+			for _, po := range p.PlayerPokeInfo {
+				if po.ID == idPoke {
+					return &po
+				}
+			}
+		}
+	}
+	return nil
+}
+
+func pokedexScanner(pokeName string) string {
+	pokemon := findPokemonByNameOrID(pokeName)
+	if pokemon == nil {
+		return fmt.Sprintf("Pokémon with name %s not found", pokeName)
+	}
+	return fmt.Sprintf("ID: %s\nName: %s\nTypes: %v\nBase Stats: HP: %d, ATK: %d, DEF: %d, Sp.Atk: %d, Sp.Def: %d, Speed: %d",
+		pokemon.Id, pokemon.Name, pokemon.PokeInfo.Types, pokemon.PokeInfo.Hp, pokemon.PokeInfo.Atk, pokemon.PokeInfo.Def,
+		pokemon.PokeInfo.SpAtk, pokemon.PokeInfo.SpDef, pokemon.PokeInfo.Speed)
 }
 
 func isInBattle(p string) bool {
@@ -628,13 +697,6 @@ func checkExistedPlayerByAddr(addr *net.UDPAddr) bool {
 	return false
 }
 
-func loadPokedex(filename string) error {
-	data, err := ioutil.ReadFile(filename)
-	if err != nil {
-		return err
-	}
-	return json.Unmarshal(data, &pokedex) // gán data vào pokedex
-}
 func getDmgNumber(pAtk *BattlePokemon, pRecive *BattlePokemon) float32 {
 	var dmg float32
 	var types = make(map[string]float32)
@@ -695,15 +757,6 @@ func checkSpeed(pAtk *BattlePokemon, pRecive *BattlePokemon) string {
 
 func getNanoTime() int64 {
 	return time.Now().UnixNano()
-}
-
-func findPokemonByName(name string) *Pokemon {
-	for _, p := range pokedex {
-		if p.Name == name {
-			return &p
-		}
-	}
-	return nil
 }
 
 // func (battle *Battle) Surrender(senderName string) {
