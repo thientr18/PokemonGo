@@ -107,8 +107,6 @@ type (
 	}
 )
 
-var gameStates = make(map[int64]Battle)
-
 var pokedex []Pokemon // pokedex
 
 var players = make(map[string]*Player) // list of player
@@ -118,6 +116,8 @@ var inBattleWith = make(map[string]string) // check player is in battle or not
 var availablePokemons []PlayerPokemon // store pokemons of player | load data failed
 
 var BattlePokemons []BattlePokemon // chưa load data
+
+var gameStates = make(map[int64]Battle)
 
 func main() {
 	// Load the pokedex data from the JSON file
@@ -161,6 +161,7 @@ func main() {
 }
 
 func handleMessage(message string, addr *net.UDPAddr, conn *net.UDPConn) {
+
 	fmt.Println(message)
 
 	if strings.HasPrefix(message, "@") {
@@ -243,11 +244,12 @@ func handleMessage(message string, addr *net.UDPAddr, conn *net.UDPConn) {
 				}
 
 				temp := parts[1]
-				nextPart := strings.SplitN(temp, " ", 2)
+				nextPart := strings.Split(temp, " ")
 				opponent := nextPart[0]
 
 				if players[senderName].battleRequestReceives[opponent] == senderName &&
 					players[opponent].battleRequestSends[senderName] == opponent {
+
 					inBattleWith[senderName] = opponent
 					inBattleWith[opponent] = senderName
 
@@ -266,10 +268,18 @@ func handleMessage(message string, addr *net.UDPAddr, conn *net.UDPConn) {
 					gameStates[id].Players[opponent] = players[opponent]
 
 					players[senderName] = &Player{
-						battleID: id,
+						battleID:              id,
+						Name:                  senderName,
+						Addr:                  addr,
+						battleRequestSends:    make(map[string]string),
+						battleRequestReceives: make(map[string]string),
 					}
 					players[opponent] = &Player{
-						battleID: id,
+						battleID:              id,
+						Name:                  opponent,
+						Addr:                  players[opponent].Addr,
+						battleRequestSends:    make(map[string]string),
+						battleRequestReceives: make(map[string]string),
 					}
 
 					sendMessage("You accepted a battle with player '"+opponent+"'", addr, conn)
@@ -392,7 +402,7 @@ func handleMessage(message string, addr *net.UDPAddr, conn *net.UDPConn) {
 						}
 						sendMessage("@pokemon_start_battle", addr, conn)
 					} else {
-						sendMessage("@pokemon_chosen", addr, conn)
+						sendMessage("@pokemon_pick", addr, conn)
 					}
 				} else {
 					fmt.Println()
@@ -594,7 +604,7 @@ func broadcastMessage(message string, senderName string, conn *net.UDPConn) {
 func sendMessage(message string, addr *net.UDPAddr, conn *net.UDPConn) {
 	_, err := conn.WriteToUDP([]byte(message), addr)
 	if err != nil {
-		fmt.Println("Error sending error message:", err)
+		fmt.Println("Error sending message:", err)
 	}
 }
 
