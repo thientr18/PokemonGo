@@ -52,7 +52,7 @@ func main() {
 		}
 	}
 
-	go receiveMessages(addr, conn)
+	go receiveMessages(conn)
 
 	for {
 		text, _ := reader.ReadString('\n')
@@ -66,7 +66,7 @@ func main() {
 	}
 }
 
-func receiveMessages(addr *net.UDPAddr, conn *net.UDPConn) {
+func receiveMessages(conn *net.UDPConn) {
 	buffer := make([]byte, 1024)
 
 	for {

@@ -4,9 +4,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"math/rand"
 	"net"
 	"strings"
-	"sync"
+	"time"
 )
 
 const (
@@ -20,31 +21,54 @@ type (
 	Pokemon struct {
 		Id       string   `json:"ID"`
 		Name     string   `json:"Name"`
-		Types    []string `json:"types"`
 		Link     string   `json:"URL"`
 		PokeInfo PokeInfo `json:"Poke-Information"`
 	}
 
 	PokeInfo struct {
-		Hp    int `json:"HP"`
-		Atk   int `json:"ATK"`
-		Def   int `json:"DEF"`
-		SpAtk int `json:"Sp.Atk"`
-		SpDef int `json:"Sp.Def"`
-		Speed int `json:"Speed"`
+		Types       []string `json:"types"`
+		Hp          int      `json:"HP"`
+		Atk         int      `json:"ATK"`
+		Def         int      `json:"DEF"`
+		SpAtk       int      `json:"Sp.Atk"`
+		SpDef       int      `json:"Sp.Def"`
+		Speed       int      `json:"Speed"`
+		TypeDefense TypeDef  `json:"Type-Defenses"`
+	}
+	TypeDef struct {
+		Normal   float32
+		Fire     float32
+		Water    float32
+		Electric float32
+		Grass    float32
+		Ice      float32
+		Fighting float32
+		Poison   float32
+		Ground   float32
+		Flying   float32
+		Psychic  float32
+		Bug      float32
+		Rock     float32
+		Ghost    float32
+		Dragon   float32
+		Dark     float32
+		Steel    float32
+		Fairy    float32
 	}
 
 	PlayerPokemon struct { // store pokemmon that a player holding
-		Name  string `json:"Name"`
-		ID    string
-		Level int
-		Exp   int
-		Hp    int `json:"HP"`
-		Atk   int `json:"ATK"`
-		Def   int `json:"DEF"`
-		SpAtk int `json:"Sp.Atk"`
-		SpDef int `json:"Sp.Def"`
-		Speed int `json:"Speed"`
+		Name        string `json:"Name"`
+		ID          string
+		Level       int
+		Exp         int
+		Types       []string `json:"types"`
+		Hp          int      `json:"HP"`
+		Atk         int      `json:"ATK"`
+		Def         int      `json:"DEF"`
+		SpAtk       int      `json:"Sp.Atk"`
+		SpDef       int      `json:"Sp.Def"`
+		Speed       int      `json:"Speed"`
+		TypeDefense TypeDef  `json:"Type-Defenses"`
 	}
 
 	Player struct {
@@ -55,22 +79,26 @@ type (
 		battleRequestSends    map[string]string // store number of request that a player send: 'map[receivers]sender'
 		battleRequestReceives map[string]string // store number of request that a player get: 'map[senders]receiver'
 		Active                string
+		battleID              int64
 	}
 
 	BattlePokemon struct {
-		Name  string `json:"Name"`
-		ID    string
-		Level int
-		Exp   int
-		Hp    int `json:"HP"`
-		Atk   int `json:"ATK"`
-		Def   int `json:"DEF"`
-		SpAtk int `json:"Sp.Atk"`
-		SpDef int `json:"Sp.Def"`
-		Speed int `json:"Speed"`
+		Name        string `json:"Name"`
+		ID          string
+		Level       int
+		Exp         int
+		Types       []string `json:"types"`
+		Hp          int      `json:"HP"`
+		Atk         int      `json:"ATK"`
+		Def         int      `json:"DEF"`
+		SpAtk       int      `json:"Sp.Atk"`
+		SpDef       int      `json:"Sp.Def"`
+		Speed       int      `json:"Speed"`
+		TypeDefense TypeDef  `json:"Type-Defenses"`
 	}
 
 	Battle struct {
+		battleID       int64
 		Players        map[string]*Player
 		ActivePokemons map[string]BattlePokemon // Store active Pokemons in the battle
 		TurnOrder      []string
@@ -78,17 +106,17 @@ type (
 		Status         string // "waiting", "inviting", "active"
 	}
 
-	GameState struct {
-		mu      sync.Mutex
-		Battles map[string]*Battle
-		Players map[string]*Player
-	}
+	// GameState struct {
+	// 	mu      sync.Mutex
+	// 	Battles map[string]*Battle
+	// 	Players map[string]*Player
+	// }
 )
 
-var gameState = GameState{
-	Battles: make(map[string]*Battle),
-	Players: make(map[string]*Player),
-}
+// var gameState = GameState{
+// 	Battles: make(map[string]*Battle),
+// 	Players: make(map[string]*Player),
+// }
 
 var pokedex []Pokemon // pokedex
 
@@ -99,6 +127,8 @@ var inBattleWith = make(map[string]string) // check player is in battle or not
 var availablePokemons []PlayerPokemon // store pokemons of player | load data failed
 
 var BattlePokemons []BattlePokemon // chưa load data
+
+var gameStates []Battle
 
 func main() {
 	// Load the pokedex data from the JSON file
@@ -142,9 +172,6 @@ func main() {
 }
 
 func handleMessage(message string, addr *net.UDPAddr, conn *net.UDPConn) {
-	gameState.mu.Lock()
-	defer gameState.mu.Unlock()
-
 	fmt.Println(message)
 
 	if strings.HasPrefix(message, "@") {
@@ -218,14 +245,6 @@ func handleMessage(message string, addr *net.UDPAddr, conn *net.UDPConn) {
 				players[senderName].battleRequestSends[opponent] = senderName
 				players[opponent].battleRequestReceives[senderName] = opponent
 
-				gameState.Battles[senderName] = &Battle{
-					TurnOrder:      []string{senderName, opponent},
-					Current:        0,
-					Players:        map[string]*Player{},
-					ActivePokemons: map[string]BattlePokemon{},
-					Status:         "inviting",
-				}
-
 				battleRequestMessage := "Player '" + senderName + "' requests you a pokemon battle!"
 				sendMessage(battleRequestMessage, players[opponent].Addr, conn)
 			case "@accept":
@@ -252,9 +271,17 @@ func handleMessage(message string, addr *net.UDPAddr, conn *net.UDPConn) {
 					delete(players[opponent].battleRequestSends, senderName)
 					delete(players[senderName].battleRequestReceives, opponent)
 
-					game := gameState.Battles[opponent]
-					game.Players[senderName] = gameState.Players[senderName]
-					game.Status = "waiting"
+					var id = getNanoTime()
+					gameStates[id].Players[senderName] = players[senderName]
+					gameStates[id].Players[opponent] = players[opponent]
+					gameStates[id].Status = "waiting"
+					players[senderName] = &Player{
+						battleID: id,
+					}
+					players[opponent] = &Player{
+						battleID: id,
+					}
+
 				} else {
 					sendMessage("Invalid acception! (WRONG opppent name or NOT RECEIVES battle request from this opponent)", addr, conn)
 				}
@@ -335,70 +362,94 @@ func handleMessage(message string, addr *net.UDPAddr, conn *net.UDPConn) {
 					sendMessage("Invalid acception! (WRONG opppent name or NOT RECEIVES battle request from this opponent)", addr, conn)
 				}
 			case "@pick":
-				if len(parts) != 4 {
+				if len(strings.Split(message, " ")) != 4 {
+					fmt.Println(len(parts))
 					sendMessage("Invalid pokemons selection!", addr, conn)
 					break
 				}
-				if game, exists := gameState.Battles[senderName]; exists && game.Status == "waiting" {
+				if _, exists := gameStates[players[senderName].battleID].Players[senderName]; exists &&
+					gameStates[players[senderName].battleID].Status == "waiting" {
+
 					for i := 1; i < 4; i++ {
-						chosen := parts[i] // choose: Pokemon picked
-						if p, ok := gameState.Players[senderName].Pokemons[chosen]; ok {
-							game.ActivePokemons[senderName+"_"+chosen] = BattlePokemon{Name: p.Name,
-								ID:    p.ID,
-								Level: p.Level,
-								Exp:   p.Exp,
-								Hp:    p.Hp,
-								Atk:   p.Atk,
-								Def:   p.Def,
-								SpAtk: p.SpAtk,
-								SpDef: p.SpDef,
-								Speed: p.Speed}
+						chosen := strings.Split(message, " ")[i] // choose: Pokemon picked
+						if p, ok := gameStates[players[senderName].battleID].Players[senderName].Pokemons[chosen]; ok {
+							gameStates[players[senderName].battleID].ActivePokemons[senderName+"_"+chosen] = BattlePokemon{Name: p.Name,
+								ID:          p.ID,
+								Level:       p.Level,
+								Exp:         p.Exp,
+								Hp:          p.Hp,
+								Types:       p.Types,
+								Atk:         p.Atk,
+								Def:         p.Def,
+								SpAtk:       p.SpAtk,
+								SpDef:       p.SpDef,
+								Speed:       p.Speed,
+								TypeDefense: p.TypeDefense}
+							fmt.Println("error")
 						} else {
 							sendMessage("Invalid pokemons selection!", addr, conn)
 							break
 						}
 					}
-					if len(game.ActivePokemons) == 6 { // Both players have chosen their Pokémon
-						game.Status = "active"
+					if len(gameStates[players[senderName].battleID].ActivePokemons) == 6 { // Both players have chosen their Pokémon
+						gameStates[players[senderName].battleID].Status = "active"
 						sendMessage("@pokemon_start_battle", addr, conn)
 					} else {
 						sendMessage("@pokemon_chosen", addr, conn)
 					}
 				} else {
+					fmt.Println()
 					sendMessage("No active game found", addr, conn)
 				}
 			case "@attack": // Ngân sửa
-				for _, game := range gameState.Battles {
+				var counState int = 0
+				for _, game := range gameStates {
+					if counState == 0 {
+						opponentID := game.TurnOrder[(game.Current+1)%len(game.TurnOrder)] // len = 2, chưa hiẻu lắm nhưng nếu attack thì sẽ set cái TurnOrder cho đối thủ
+						activePlayer := game.ActivePokemons[senderName+"_"+game.TurnOrder[game.Current]]
+						activeOpponent := game.ActivePokemons[opponentID+"_"+game.TurnOrder[(game.Current+1)%len(game.TurnOrder)]]
+						if checkSpeed(activePlayer, activeOpponent) == " opponent" {
+							game.TurnOrder[game.Current] = senderName
+						} else {
+							game.TurnOrder[game.Current] = opponentID
+						}
+					}
+
 					if _, ok := game.Players[senderName]; ok {
 						if game.TurnOrder[game.Current] != senderName { // turn based
 							sendMessage("Not your turn!", addr, conn)
 						}
 
-						opponentID := game.TurnOrder[(game.Current+1)%len(game.TurnOrder)] // len = 2, check nếu đúng là turn của đối thủ thí bị trừ máu
+						opponentID := game.TurnOrder[(game.Current+1)%len(game.TurnOrder)] // len = 2, chưa hiẻu lắm nhưng nếu attack thì sẽ set cái TurnOrder cho đối thủ
 						if _, ok := game.Players[opponentID]; ok {
 
 							activePlayer := game.ActivePokemons[senderName+"_"+game.TurnOrder[game.Current]]
 
 							activeOpponent := game.ActivePokemons[opponentID+"_"+game.TurnOrder[(game.Current+1)%len(game.TurnOrder)]]
 
-							activeOpponent.Hp -= activePlayer.Atk
+							activeOpponent.Hp -= int(getDmgNumber(activePlayer, activeOpponent))
 
 							game.ActivePokemons[opponentID+"_"+game.TurnOrder[(game.Current+1)%len(game.TurnOrder)]] = activeOpponent
 
 							if activeOpponent.Hp <= 0 {
-								conn.WriteToUDP([]byte("WIN|"+senderName), addr)
+								delete(game.ActivePokemons, opponentID+"_"+game.TurnOrder[(game.Current+1)%len(game.TurnOrder)])
 
-								// delete the battle
-								// set trạng thái player về ban đầu
-							} else {
-								conn.WriteToUDP([]byte("ATTACKED|"+senderName), addr)
-								game.Current = (game.Current + 1) % len(game.TurnOrder) // Change turn after attack
 							}
+
+							if _, oke := game.ActivePokemons[opponentID]; oke {
+								conn.WriteToUDP([]byte("@attacke "+senderName), addr)
+								game.Current = (game.Current + 1) % len(game.TurnOrder)
+							} else {
+								conn.WriteToUDP([]byte("@win"+senderName), addr)
+							}
+
 						}
+
 					}
+					counState++
 				}
 			case "@change":
-				for _, game := range gameState.Battles {
+				for _, game := range gameStates {
 					if player, ok := game.Players[senderName]; ok {
 						if game.TurnOrder[game.Current] != senderName {
 							sendMessage("Not your turn", addr, conn)
@@ -418,7 +469,7 @@ func handleMessage(message string, addr *net.UDPAddr, conn *net.UDPConn) {
 				}
 
 			case "@surrender":
-				battle := gameState.Battles[senderName]
+				battle := gameStates[players[senderName].battleID]
 
 				surrenderer, exists := battle.Players[senderName]
 				if !exists {
@@ -584,6 +635,67 @@ func loadPokedex(filename string) error {
 		return err
 	}
 	return json.Unmarshal(data, &pokedex) // gán data vào pokedex
+}
+func getDmgNumber(pAtk BattlePokemon, pRecive BattlePokemon) float32 {
+	var dmg float32
+	var types = make(map[string]float32)
+
+	types["Normal"] = pRecive.TypeDefense.Normal
+	types["Fire"] = pRecive.TypeDefense.Fire
+	types["Water"] = pRecive.TypeDefense.Water
+	types["Electric"] = pRecive.TypeDefense.Electric
+	types["Grass"] = pRecive.TypeDefense.Grass
+	types["Ice"] = pRecive.TypeDefense.Ice
+	types["Fighting"] = pRecive.TypeDefense.Fighting
+	types["Poison"] = pRecive.TypeDefense.Poison
+	types["Ground"] = pRecive.TypeDefense.Ground
+	types["Flying"] = pRecive.TypeDefense.Flying
+	types["Psychic"] = pRecive.TypeDefense.Psychic
+	types["Bug"] = pRecive.TypeDefense.Bug
+	types["Rock"] = pRecive.TypeDefense.Rock
+	types["Ghost"] = pRecive.TypeDefense.Ghost
+	types["Dragon"] = pRecive.TypeDefense.Dragon
+	types["Dark"] = pRecive.TypeDefense.Dark
+	types["Steel"] = pRecive.TypeDefense.Steel
+	types["Fairy"] = pRecive.TypeDefense.Fairy
+
+	rand.Seed(time.Now().UnixNano())
+	var choseAtk = rand.Intn(1-0+1) + 0
+	if choseAtk == 0 {
+		dmg = float32(pAtk.Atk) - float32(pRecive.Def)
+	} else {
+		var typeDefense float32 = 0.0
+		for _, pAtkTypes := range pAtk.Types {
+			for typeDef, def := range types {
+				if typeDef == pAtkTypes {
+					if typeDefense < def {
+						typeDefense = def
+					}
+				}
+			}
+		}
+		dmg = float32(pAtk.SpAtk)*typeDefense - float32(pRecive.SpDef)
+	}
+	return dmg
+
+}
+func checkSpeed(pAtk BattlePokemon, pRecive BattlePokemon) string {
+	if pAtk.Speed > pRecive.Speed {
+		return "pLayer"
+	} else if pAtk.Speed > pRecive.Speed {
+		return "opponent"
+	} else {
+		var chosePokemon = rand.Intn(1-0+1) + 0
+		if chosePokemon == 0 {
+			return "PLayer"
+		} else {
+			return "opponent"
+		}
+	}
+}
+
+func getNanoTime() int64 {
+	return time.Now().UnixNano()
 }
 
 // func (battle *Battle) Surrender(senderName string) {
