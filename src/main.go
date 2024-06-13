@@ -13,7 +13,7 @@ const (
 	HOST        = "localhost"
 	PORT        = "8080"
 	TYPE        = "udp"
-	pokedexData = "src\\database\\pokedex.json"
+	pokedexData = "src\\pokedex.json"
 )
 
 type (
@@ -90,7 +90,7 @@ var gameState = GameState{
 	Players: make(map[string]*Player),
 }
 
-var pokedex PokeInfo // pokedex
+var pokedex []Pokemon // pokedex
 
 var players = make(map[string]*Player) // list of player
 
@@ -105,12 +105,11 @@ func main() {
 	err := loadPokedex(pokedexData)
 	if err != nil {
 		fmt.Println("Error loading pokedex data:", err)
-
 	}
 
 	// Load the pokedex data from the JSON file
-	if err := loadPokemonData("test\\pokemon_data.json"); err != nil {
-		panic(err)
+	if err := loadPokemonData("src\\playersPokemon.json"); err != nil {
+		fmt.Println("Error loading players' pokemons data:", err)
 	}
 
 	udpAddr, err := net.ResolveUDPAddr(TYPE, HOST+":"+PORT)
@@ -458,9 +457,9 @@ func handleMessage(message string, addr *net.UDPAddr, conn *net.UDPConn) {
 					pokemon.Exp += ExpToDistribute //total exp of winnder
 				} //correct logic
 
-				fmt.Printf("%s's Pokemon after battle: \n", winner.Pokemons)
+				fmt.Printf("%s's Pokemon after battle: \n", winner.Name)
 				for _, pokemon := range winner.Pokemons {
-					fmt.Printf("%s\n", pokemon)
+					fmt.Printf("%d\n", pokemon.Exp)
 				}
 
 				delete(inBattleWith, senderName)
@@ -583,7 +582,7 @@ func loadPokedex(filename string) error {
 	if err != nil {
 		return err
 	}
-	return json.Unmarshal(data, &pokedex)
+	return json.Unmarshal(data, &pokedex) // gán data vào pokedex
 }
 
 // func (battle *Battle) Surrender(senderName string) {
