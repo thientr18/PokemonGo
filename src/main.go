@@ -128,7 +128,7 @@ var availablePokemons []PlayerPokemon // store pokemons of player | load data fa
 
 var BattlePokemons []BattlePokemon // chưa load data
 
-var gameStates []Battle
+var gameStates = make(map[int64]Battle)
 
 func main() {
 	// Load the pokedex data from the JSON file
@@ -530,7 +530,6 @@ func handleMessage(message string, addr *net.UDPAddr, conn *net.UDPConn) {
 			case "@y":
 				sendMessage("@pokemon_list_pick"+formatPokemonList(), addr, conn)
 			case "@n":
-
 				sendMessage("@pokemon_pick", addr, conn)
 
 			default:
