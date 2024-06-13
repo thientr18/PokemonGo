@@ -140,6 +140,16 @@ func receiveMessages(conn *net.UDPConn) {
 			continue
 		}
 
+		if strings.Contains(response, "@attacked") {
+			fmt.Println("Your turn!")
+			continue
+		}
+
+		if strings.Contains(response, "@you_acttacked") {
+			fmt.Println("Opponent's turn!")
+			continue
+		}
+
 		fmt.Println(response)
 	}
 }

@@ -432,6 +432,26 @@ func handleMessage(message string, addr *net.UDPAddr, conn *net.UDPConn) {
 						gameStates[players[senderName].battleID].Status = "active"
 						sendMessage("@pokemon_start_battle", addr, conn)
 						sendMessage("@pokemon_start_battle", players[inBattleWith[senderName]].Addr, conn)
+
+						var counState int = 0
+						for _, game := range gameStates {
+							if counState == 0 {
+								if counState == 0 {
+									opponentID := game.TurnOrder[(game.Current+1)%len(game.TurnOrder)] // len = 2, chưa hiẻu lắm nhưng nếu attack thì sẽ set cái TurnOrder cho đối thủ
+									activePlayer := game.ActivePokemons[senderName+"_"+game.TurnOrder[game.Current]]
+									activeOpponent := game.ActivePokemons[opponentID+"_"+game.TurnOrder[(game.Current+1)%len(game.TurnOrder)]]
+									if checkSpeed(activePlayer, activeOpponent) == "opponent" {
+										game.TurnOrder[game.Current] = opponentID
+										sendMessage("Your opponent attack first!", players[inBattleWith[senderName]].Addr, conn)
+										sendMessage("You attacks first!", addr, conn)
+									} else {
+										game.TurnOrder[game.Current] = senderName
+										sendMessage("Your opponent attack first!", addr, conn)
+										sendMessage("You attacks first!", players[inBattleWith[senderName]].Addr, conn)
+									}
+								}
+							}
+						}
 					} else {
 						sendMessage("@pokemon_picked", addr, conn)
 					}
@@ -442,16 +462,16 @@ func handleMessage(message string, addr *net.UDPAddr, conn *net.UDPConn) {
 			case "@attack": // Ngân sửa
 				var counState int = 0
 				for _, game := range gameStates {
-					if counState == 0 {
-						opponentID := game.TurnOrder[(game.Current+1)%len(game.TurnOrder)] // len = 2, chưa hiẻu lắm nhưng nếu attack thì sẽ set cái TurnOrder cho đối thủ
-						activePlayer := game.ActivePokemons[senderName+"_"+game.TurnOrder[game.Current]]
-						activeOpponent := game.ActivePokemons[opponentID+"_"+game.TurnOrder[(game.Current+1)%len(game.TurnOrder)]]
-						if checkSpeed(activePlayer, activeOpponent) == " opponent" {
-							game.TurnOrder[game.Current] = senderName
-						} else {
-							game.TurnOrder[game.Current] = opponentID
-						}
-					}
+					// if counState == 0 {
+					// 	opponentID := game.TurnOrder[(game.Current+1)%len(game.TurnOrder)] // len = 2, chưa hiẻu lắm nhưng nếu attack thì sẽ set cái TurnOrder cho đối thủ
+					// 	activePlayer := game.ActivePokemons[senderName+"_"+game.TurnOrder[game.Current]]
+					// 	activeOpponent := game.ActivePokemons[opponentID+"_"+game.TurnOrder[(game.Current+1)%len(game.TurnOrder)]]
+					// 	if checkSpeed(activePlayer, activeOpponent) == "opponent" {
+					// 		game.TurnOrder[game.Current] = opponentID
+					// 	} else {
+					// 		game.TurnOrder[game.Current] = senderName
+					// 	}
+					// }
 
 					if _, ok := game.Players[senderName]; ok {
 						if game.TurnOrder[game.Current] != senderName { // turn based
@@ -473,8 +493,9 @@ func handleMessage(message string, addr *net.UDPAddr, conn *net.UDPConn) {
 								delete(game.ActivePokemons, opponentID+"_"+game.TurnOrder[(game.Current+1)%len(game.TurnOrder)])
 							}
 
-							if _, oke := game.ActivePokemons[opponentID]; oke {
-								conn.WriteToUDP([]byte("@attacke "+senderName), addr)
+							if _, ok := game.ActivePokemons[opponentID]; ok {
+								sendMessage("@opponet_attacked", players[inBattleWith[senderName]].Addr, conn)
+								sendMessage("@you_acttacked", addr, conn)
 								game.Current = (game.Current + 1) % len(game.TurnOrder)
 							} else {
 								conn.WriteToUDP([]byte("@win"+senderName), addr)
@@ -486,6 +507,7 @@ func handleMessage(message string, addr *net.UDPAddr, conn *net.UDPConn) {
 					counState++
 				}
 			case "@change":
+				parts := strings.Split(message, " ")
 				for _, game := range gameStates {
 					if player, ok := game.Players[senderName]; ok {
 						if game.TurnOrder[game.Current] != senderName {
@@ -744,13 +766,13 @@ func getDmgNumber(pAtk *BattlePokemon, pRecive *BattlePokemon) float32 {
 }
 func checkSpeed(pAtk *BattlePokemon, pRecive *BattlePokemon) string {
 	if pAtk.Speed > pRecive.Speed {
-		return "pLayer"
+		return "player"
 	} else if pAtk.Speed > pRecive.Speed {
 		return "opponent"
 	} else {
 		var chosePokemon = rand.Intn(1-0+1) + 0
 		if chosePokemon == 0 {
-			return "PLayer"
+			return "player"
 		} else {
 			return "opponent"
 		}
