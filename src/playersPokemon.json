@@ -1,415 +1,546 @@
-{
-    "Players": [
+[
+    {
+        "PlayerName": "anh",
+        "Pokemons": [
         {
-            "Name": "Player1",
-            "Pokemons": [
-            {
-                "Name": "Lapras",
-                "ID": "1",
-                "Level": 10,
-                "Exp": 1000,
-                "HP": 50,
-                "ATK": 20,
-                "DEF": 15,
-                "Sp.Atk": 25,
-                "Sp.Def": 20,
-                "Speed": 30
-            },
-            {
-                "Name": "Goldeen",
-                "ID": "2",
-                "Level": 5,
-                "Exp": 500,
-                "HP": 40,
-                "ATK": 15,
-                "DEF": 12,
-                "Sp.Atk": 20,
-                "Sp.Def": 18,
-                "Speed": 25
-            },
-            {
-                "Name": "Gyarados",
-                "ID": "3",
-                "Level": 5,
-                "Exp": 500,
-                "HP": 40,
-                "ATK": 15,
-                "DEF": 12,
-                "Sp.Atk": 20,
-                "Sp.Def": 18,
-                "Speed": 25
-            }
-            ]
+            "Name": "Lapras",
+            "ID": "#001",
+            "Level": 10,
+            "Exp": 1000,
+            "HP": 50,
+            "ATK": 20,
+            "DEF": 15,
+            "S.Atk": 25,
+            "S.Def": 20,
+            "Speed": 30
         },
         {
-            "Name": "Player2",
-            "Pokemons": [
-            {
-                "Name": "Dewgong",
-                "ID": "1",
-                "Level": 12,
-                "Exp": 1200,
-                "HP": 60,
-                "ATK": 25,
-                "DEF": 20,
-                "Sp.Atk": 30,
-                "Sp.Def": 25,
-                "Speed": 35
-            },
-            {
-                "Name": "Kadabra",
-                "ID": "2",
-                "Level": 6,
-                "Exp": 600,
-                "HP": 45,
-                "ATK": 20,
-                "DEF": 16,
-                "Sp.Atk": 25,
-                "Sp.Def": 22,
-                "Speed": 30
-            },
-            {
-                "Name": "Lampent",
-                "ID": "3",
-                "Level": 6,
-                "Exp": 600,
-                "HP": 45,
-                "ATK": 20,
-                "DEF": 16,
-                "Sp.Atk": 25,
-                "Sp.Def": 22,
-                "Speed": 30
-            }
-            ]
+            "Name": "Goldeen",
+            "ID": "#002",
+            "Level": 5,
+            "Exp": 500,
+            "HP": 40,
+            "ATK": 15,
+            "DEF": 12,
+            "S.Atk": 20,
+            "S.Def": 18,
+            "Speed": 25
         },
         {
-            "Name": "Player3",
-            "Pokemons": [
-            {
-                "Name": "Arbok",
-                "ID": "1",
-                "Level": 15,
-                "Exp": 1500,
-                "HP": 70,
-                "ATK": 30,
-                "DEF": 25,
-                "Sp.Atk": 35,
-                "Sp.Def": 30,
-                "Speed": 40
-            },
-            {
-                "Name": "Kadabra",
-                "ID": "2",
-                "Level": 6,
-                "Exp": 600,
-                "HP": 45,
-                "ATK": 20,
-                "DEF": 16,
-                "Sp.Atk": 25,
-                "Sp.Def": 22,
-                "Speed": 30
-            },
-            {
-                "Name": "Murkrow",
-                "ID": "3",
-                "Level": 6,
-                "Exp": 600,
-                "HP": 45,
-                "ATK": 20,
-                "DEF": 16,
-                "Sp.Atk": 25,
-                "Sp.Def": 22,
-                "Speed": 30
-            }
-            ]
+            "Name": "Gyarados",
+            "ID": "#003",
+            "Level": 5,
+            "Exp": 500,
+            "HP": 40,
+            "ATK": 15,
+            "DEF": 12,
+            "S.Atk": 20,
+            "S.Def": 18,
+            "Speed": 25
         },
         {
-            "Name": "Player4",
-            "Pokemons": [
-            {
-                "Name": "Charmander",
-                "ID": "1",
-                "Level": 8,
-                "Exp": 800,
-                "HP": 45,
-                "ATK": 18,
-                "DEF": 14,
-                "Sp.Atk": 22,
-                "Sp.Def": 16,
-                "Speed": 28
-            },
-            {
-                "Name": "Pidgey",
-                "ID": "2",
-                "Level": 4,
-                "Exp": 400,
-                "HP": 35,
-                "ATK": 12,
-                "DEF": 10,
-                "Sp.Atk": 18,
-                "Sp.Def": 14,
-                "Speed": 20
-            },
-            {
-                "Name": "Hoppip",
-                "ID": "3",
-                "Level": 6,
-                "Exp": 600,
-                "HP": 45,
-                "ATK": 20,
-                "DEF": 16,
-                "Sp.Atk": 25,
-                "Sp.Def": 22,
-                "Speed": 30
-            }
-            ]
+            "Name": "Pikachu",
+            "ID": "#004",
+            "Level": 6,
+            "Exp": 600,
+            "HP": 45,
+            "ATK": 20,
+            "DEF": 16,
+            "S.Atk": 25,
+            "S.Def": 22,
+            "Speed": 30
+        }
+        ]
+    },
+    {
+        "PlayerName": "thien",
+        "Pokemons": [
+        {
+            "Name": "Dewgong",
+            "ID": "#001",
+            "Level": 12,
+            "Exp": 1200,
+            "HP": 60,
+            "ATK": 25,
+            "DEF": 20,
+            "S.Atk": 30,
+            "S.Def": 25,
+            "Speed": 35
         },
         {
-            "Name": "Player5",
-            "Pokemons": [
-            {
-                "Name": "Ivysaur",
-                "ID": "1",
-                "Level": 20,
-                "Exp": 2000,
-                "HP": 80,
-                "ATK": 35,
-                "DEF": 30,
-                "Sp.Atk": 40,
-                "Sp.Def": 35,
-                "Speed": 45
-            },
-            {
-                "Name": "Bulbasaur",
-                "ID": "2",
-                "Level": 10,
-                "Exp": 1000,
-                "HP": 55,
-                "ATK": 22,
-                "DEF": 18,
-                "Sp.Atk": 28,
-                "Sp.Def": 24,
-                "Speed": 35
-            },
-            {
-                "Name": "Politoed",
-                "ID": "3",
-                "Level": 6,
-                "Exp": 600,
-                "HP": 45,
-                "ATK": 20,
-                "DEF": 16,
-                "Sp.Atk": 25,
-                "Sp.Def": 22,
-                "Speed": 30
-            }
-            ]
+            "Name": "Kadabra",
+            "ID": "#002",
+            "Level": 6,
+            "Exp": 600,
+            "HP": 45,
+            "ATK": 20,
+            "DEF": 16,
+            "S.Atk": 25,
+            "S.Def": 22,
+            "Speed": 30
         },
         {
-            "Name": "Player6",
-            "Pokemons": [
-            {
-                "Name": "Charizard",
-                "ID": "1",
-                "Level": 18,
-                "Exp": 1800,
-                "HP": 75,
-                "ATK": 32,
-                "DEF": 28,
-                "Sp.Atk": 37,
-                "Sp.Def": 32,
-                "Speed": 42
-            },
-            {
-                "Name": "Bulbasaur",
-                "ID": "2",
-                "Level": 9,
-                "Exp": 900,
-                "HP": 50,
-                "ATK": 20,
-                "DEF": 16,
-                "Sp.Atk": 25,
-                "Sp.Def": 22,
-                "Speed": 30
-            },
-            {
-                "Name": "Cleffa",
-                "ID": "3",
-                "Level": 6,
-                "Exp": 600,
-                "HP": 45,
-                "ATK": 20,
-                "DEF": 16,
-                "Sp.Atk": 25,
-                "Sp.Def": 22,
-                "Speed": 30
-            }
-            ]
+            "Name": "Lampent",
+            "ID": "#003",
+            "Level": 6,
+            "Exp": 600,
+            "HP": 45,
+            "ATK": 20,
+            "DEF": 16,
+            "S.Atk": 25,
+            "S.Def": 22,
+            "Speed": 30
         },
         {
-            "Name": "Player7",
-            "Pokemons": [
-            {
-                "Name": "Squirtle",
-                "ID": "1",
-                "Level": 14,
-                "Exp": 1400,
-                "HP": 65,
-                "ATK": 28,
-                "DEF": 23,
-                "Sp.Atk": 33,
-                "Sp.Def": 28,
-                "Speed": 38
-            },
-            {
-                "Name": "Jigglypuff",
-                "ID": "2",
-                "Level": 7,
-                "Exp": 700,
-                "HP": 42,
-                "ATK": 17,
-                "DEF": 13,
-                "Sp.Atk": 21,
-                "Sp.Def": 19,
-                "Speed": 27
-            },
-            {
-                "Name": "Kadabra",
-                "ID": "3",
-                "Level": 6,
-                "Exp": 600,
-                "HP": 45,
-                "ATK": 20,
-                "DEF": 16,
-                "Sp.Atk": 25,
-                "Sp.Def": 22,
-                "Speed": 30
-            }
-            ]
+            "Name": "Pikachu",
+            "ID": "#004",
+            "Level": 6,
+            "Exp": 600,
+            "HP": 45,
+            "ATK": 20,
+            "DEF": 16,
+            "S.Atk": 25,
+            "S.Def": 22,
+            "Speed": 30
+        }
+        ]
+    },
+    {
+        "PlayerName": "vi",
+        "Pokemons": [
+        {
+            "Name": "Arbok",
+            "ID": "#001",
+            "Level": 15,
+            "Exp": 1500,
+            "HP": 70,
+            "ATK": 30,
+            "DEF": 25,
+            "S.Atk": 35,
+            "S.Def": 30,
+            "Speed": 40
         },
         {
-            "Name": "Player8",
-            "Pokemons": [
-            {
-                "Name": "Gengar",
-                "ID": "1",
-                "Level": 11,
-                "Exp": 1100,
-                "HP": 55,
-                "ATK": 23,
-                "DEF": 18,
-                "Sp.Atk": 27,
-                "Sp.Def": 23,
-                "Speed": 32
-            },
-            {
-                "Name": "Eevee",
-                "ID": "2",
-                "Level": 5,
-                "Exp": 500,
-                "HP": 40,
-                "ATK": 15,
-                "DEF": 12,
-                "Sp.Atk": 20,
-                "Sp.Def": 18,
-                "Speed": 25
-            },
-            {
-                "Name": "Furret",
-                "ID": "3",
-                "Level": 6,
-                "Exp": 600,
-                "HP": 45,
-                "ATK": 20,
-                "DEF": 16,
-                "Sp.Atk": 25,
-                "Sp.Def": 22,
-                "Speed": 30
-            }
-            ]
+            "Name": "Kadabra",
+            "ID": "#002",
+            "Level": 6,
+            "Exp": 600,
+            "HP": 45,
+            "ATK": 20,
+            "DEF": 16,
+            "S.Atk": 25,
+            "S.Def": 22,
+            "Speed": 30
         },
         {
-            "Name": "Player9",
-            "Pokemons": [
-            {
-                "Name": "Snorlax",
-                "ID": "1",
-                "Level": 9,
-                "Exp": 900,
-                "HP": 50,
-                "ATK": 20,
-                "DEF": 16,
-                "Sp.Atk": 25,
-                "Sp.Def": 22,
-                "Speed": 30
-            },
-            {
-                "Name": "Dragonite",
-                "ID": "2",
-                "Level": 3,
-                "Exp": 300,
-                "HP": 30,
-                "ATK": 10,
-                "DEF": 8,
-                "Sp.Atk": 15,
-                "Sp.Def": 12,
-                "Speed": 15
-            },
-            {
-                "Name": "Cyndaquil",
-                "ID": "3",
-                "Level": 6,
-                "Exp": 600,
-                "HP": 45,
-                "ATK": 20,
-                "DEF": 16,
-                "Sp.Atk": 25,
-                "Sp.Def": 22,
-                "Speed": 30
-            }
-            ]
+            "Name": "Murkrow",
+            "ID": "#003",
+            "Level": 6,
+            "Exp": 600,
+            "HP": 45,
+            "ATK": 20,
+            "DEF": 16,
+            "S.Atk": 25,
+            "S.Def": 22,
+            "Speed": 30
         },
         {
-            "Name": "Player10",
-            "Pokemons": [
-            {
-                "Name": "Mewtwo",
-                "ID": "1",
-                "Level": 13,
-                "Exp": 1300,
-                "HP": 60,
-                "ATK": 25,
-                "DEF": 20,
-                "Sp.Atk": 30,
-                "Sp.Def": 25,
-                "Speed": 35
-            },
-            {
-                "Name": "Pikachu",
-                "ID": "2",
-                "Level": 6,
-                "Exp": 600,
-                "HP": 45,
-                "ATK": 20,
-                "DEF": 16,
-                "Sp.Atk": 25,
-                "Sp.Def": 22,
-                "Speed": 30
-            },
-            {
-                "Name": "Dragonair",
-                "ID": "3",
-                "Level": 6,
-                "Exp": 600,
-                "HP": 45,
-                "ATK": 20,
-                "DEF": 16,
-                "Sp.Atk": 25,
-                "Sp.Def": 22,
-                "Speed": 30
-            }
+            "Name": "Pikachu",
+            "ID": "#004",
+            "Level": 6,
+            "Exp": 600,
+            "HP": 45,
+            "ATK": 20,
+            "DEF": 16,
+            "S.Atk": 25,
+            "S.Def": 22,
+            "Speed": 30
+        }
+        ]
+    },
+    {
+        "PlayerName": "ngan",
+        "Pokemons": [
+        {
+            "Name": "Charmander",
+            "ID": "#001",
+            "Level": 8,
+            "Exp": 800,
+            "HP": 45,
+            "ATK": 18,
+            "DEF": 14,
+            "S.Atk": 22,
+            "S.Def": 16,
+            "Speed": 28
+        },
+        {
+            "Name": "Pidgey",
+            "ID": "#002",
+            "Level": 4,
+            "Exp": 400,
+            "HP": 35,
+            "ATK": 12,
+            "DEF": 10,
+            "S.Atk": 18,
+            "S.Def": 14,
+            "Speed": 20
+        },
+        {
+            "Name": "Hoppip",
+            "ID": "#003",
+            "Level": 6,
+            "Exp": 600,
+            "HP": 45,
+            "ATK": 20,
+            "DEF": 16,
+            "S.Atk": 25,
+            "S.Def": 22,
+            "Speed": 30
+        },
+        {
+            "Name": "Pikachu",
+            "ID": "#004",
+            "Level": 6,
+            "Exp": 600,
+            "HP": 45,
+            "ATK": 20,
+            "DEF": 16,
+            "S.Atk": 25,
+            "S.Def": 22,
+            "Speed": 30
+        }
+        ]
+    },
+    {
+        "PlayerName": "phuc",
+        "Pokemons": [
+        {
+            "Name": "Ivysaur",
+            "ID": "#001",
+            "Level": 20,
+            "Exp": 2000,
+            "HP": 80,
+            "ATK": 35,
+            "DEF": 30,
+            "S.Atk": 40,
+            "S.Def": 35,
+            "Speed": 45
+        },
+        {
+            "Name": "Bulbasaur",
+            "ID": "#002",
+            "Level": 10,
+            "Exp": 1000,
+            "HP": 55,
+            "ATK": 22,
+            "DEF": 18,
+            "S.Atk": 28,
+            "S.Def": 24,
+            "Speed": 35
+        },
+        {
+            "Name": "Politoed",
+            "ID": "#003",
+            "Level": 6,
+            "Exp": 600,
+            "HP": 45,
+            "ATK": 20,
+            "DEF": 16,
+            "S.Atk": 25,
+            "S.Def": 22,
+            "Speed": 30
+        },
+        {
+            "Name": "Pikachu",
+            "ID": "#004",
+            "Level": 6,
+            "Exp": 600,
+            "HP": 45,
+            "ATK": 20,
+            "DEF": 16,
+            "S.Atk": 25,
+            "S.Def": 22,
+            "Speed": 30
+        }
+        ]
+    },
+    {
+        "PlayerName": "huy",
+        "Pokemons": [
+        {
+            "Name": "Charizard",
+            "ID": "#001",
+            "Level": 18,
+            "Exp": 1800,
+            "HP": 75,
+            "ATK": 32,
+            "DEF": 28,
+            "S.Atk": 37,
+            "S.Def": 32,
+            "Speed": 42
+        },
+        {
+            "Name": "Bulbasaur",
+            "ID": "#002",
+            "Level": 9,
+            "Exp": 900,
+            "HP": 50,
+            "ATK": 20,
+            "DEF": 16,
+            "S.Atk": 25,
+            "S.Def": 22,
+            "Speed": 30
+        },
+        {
+            "Name": "Cleffa",
+            "ID": "#003",
+            "Level": 6,
+            "Exp": 600,
+            "HP": 45,
+            "ATK": 20,
+            "DEF": 16,
+            "S.Atk": 25,
+            "S.Def": 22,
+            "Speed": 30
+        },
+        {
+            "Name": "Pikachu",
+            "ID": "#004",
+            "Level": 6,
+            "Exp": 600,
+            "HP": 45,
+            "ATK": 20,
+            "DEF": 16,
+            "S.Atk": 25,
+            "S.Def": 22,
+            "Speed": 30
+        }
+        ]
+    },
+    {
+        "PlayerName": "satoshi",
+        "Pokemons": [
+        {
+            "Name": "Squirtle",
+            "ID": "#001",
+            "Level": 14,
+            "Exp": 1400,
+            "HP": 65,
+            "ATK": 28,
+            "DEF": 23,
+            "S.Atk": 33,
+            "S.Def": 28,
+            "Speed": 38
+        },
+        {
+            "Name": "Jigglypuff",
+            "ID": "#002",
+            "Level": 7,
+            "Exp": 700,
+            "HP": 42,
+            "ATK": 17,
+            "DEF": 13,
+            "S.Atk": 21,
+            "S.Def": 19,
+            "Speed": 27
+        },
+        {
+            "Name": "Kadabra",
+            "ID": "#003",
+            "Level": 6,
+            "Exp": 600,
+            "HP": 45,
+            "ATK": 20,
+            "DEF": 16,
+            "S.Atk": 25,
+            "S.Def": 22,
+            "Speed": 30
+        },
+        {
+            "Name": "Pikachu",
+            "ID": "#004",
+            "Level": 6,
+            "Exp": 600,
+            "HP": 45,
+            "ATK": 20,
+            "DEF": 16,
+            "S.Atk": 25,
+            "S.Def": 22,
+            "Speed": 30
+        }
+        ]
+    },
+    {
+        "PlayerName": "doraemon",
+        "Pokemons": [
+        {
+            "Name": "Gengar",
+            "ID": "#001",
+            "Level": 11,
+            "Exp": 1100,
+            "HP": 55,
+            "ATK": 23,
+            "DEF": 18,
+            "S.Atk": 27,
+            "S.Def": 23,
+            "Speed": 32
+        },
+        {
+            "Name": "Eevee",
+            "ID": "#002",
+            "Level": 5,
+            "Exp": 500,
+            "HP": 40,
+            "ATK": 15,
+            "DEF": 12,
+            "S.Atk": 20,
+            "S.Def": 18,
+            "Speed": 25
+        },
+        {
+            "Name": "Furret",
+            "ID": "#003",
+            "Level": 6,
+            "Exp": 600,
+            "HP": 45,
+            "ATK": 20,
+            "DEF": 16,
+            "S.Atk": 25,
+            "S.Def": 22,
+            "Speed": 30
+        },
+        {
+            "Name": "Pikachu",
+            "ID": "#004",
+            "Level": 6,
+            "Exp": 600,
+            "HP": 45,
+            "ATK": 20,
+            "DEF": 16,
+            "S.Atk": 25,
+            "S.Def": 22,
+            "Speed": 30
+        }
+        ]
+    },
+    {
+        "PlayerName": "nobita",
+        "Pokemons": [
+        {
+            "Name": "Snorlax",
+            "ID": "#001",
+            "Level": 9,
+            "Exp": 900,
+            "HP": 50,
+            "ATK": 20,
+            "DEF": 16,
+            "S.Atk": 25,
+            "S.Def": 22,
+            "Speed": 30
+        },
+        {
+            "Name": "Dragonite",
+            "ID": "#002",
+            "Level": 3,
+            "Exp": 300,
+            "HP": 30,
+            "ATK": 10,
+            "DEF": 8,
+            "S.Atk": 15,
+            "S.Def": 12,
+            "Speed": 15
+        },
+        {
+            "Name": "Cyndaquil",
+            "ID": "#003",
+            "Level": 6,
+            "Exp": 600,
+            "HP": 45,
+            "ATK": 20,
+            "DEF": 16,
+            "S.Atk": 25,
+            "S.Def": 22,
+            "Speed": 30
+        },
+        {
+            "Name": "Pikachu",
+            "ID": "#004",
+            "Level": 6,
+            "Exp": 600,
+            "HP": 45,
+            "ATK": 20,
+            "DEF": 16,
+            "S.Atk": 25,
+            "S.Def": 22,
+            "Speed": 30
+        },
+        {
+            "Name": "Pikachu",
+            "ID": "#005",
+            "Level": 6,
+            "Exp": 600,
+            "HP": 60,
+            "ATK": 25,
+            "DEF": 16,
+            "S.Atk": 25,
+            "S.Def": 22,
+            "Speed": 30
+        }
+        ]
+    },
+    {
+        "PlayerName": "toan",
+        "Pokemons": [
+        {
+            "Name": "Mewtwo",
+            "ID": "#001",
+            "Level": 13,
+            "Exp": 1300,
+            "HP": 60,
+            "ATK": 25,
+            "DEF": 20,
+            "S.Atk": 30,
+            "S.Def": 25,
+            "Speed": 35
+        },
+        {
+            "Name": "Pikachu",
+            "ID": "#002",
+            "Level": 6,
+            "Exp": 600,
+            "HP": 45,
+            "ATK": 20,
+            "DEF": 16,
+            "S.Atk": 25,
+            "S.Def": 22,
+            "Speed": 30
+        },
+        {
+            "Name": "Dragonair",
+            "ID": "#003",
+            "Level": 6,
+            "Exp": 600,
+            "HP": 45,
+            "ATK": 20,
+            "DEF": 16,
+            "S.Atk": 25,
+            "S.Def": 22,
+            "Speed": 30
+        },
+        {
+            "Name": "Pikachu",
+            "ID": "#004",
+            "Level": 6,
+            "Exp": 600,
+            "HP": 45,
+            "ATK": 20,
+            "DEF": 16,
+            "S.Atk": 25,
+            "S.Def": 22,
+            "Speed": 30
+        }
         ]
     }
-    ]
-}
+]
+
   

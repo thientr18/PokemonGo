@@ -11,10 +11,11 @@ import (
 )
 
 const (
-	HOST        = "localhost"
-	PORT        = "8080"
-	TYPE        = "udp"
-	pokedexData = "src\\pokedex.json"
+	HOST               = "localhost"
+	PORT               = "8080"
+	TYPE               = "udp"
+	pokedexData        = "src\\pokedex.json"
+	playerpokemonsData = "src\\playersPokemon.json"
 )
 
 type (
@@ -57,10 +58,11 @@ type (
 	}
 
 	PlayerPokemon struct { // store pokemmon that a player holding
-		Name        string `json:"Name"`
-		ID          string
-		Level       int
-		Exp         int
+		Owner       string   `json:"PlayerName"`
+		Name        string   `json:"Name"`
+		ID          string   `json:"ID"`
+		Level       int      `json:"Level"`
+		Exp         int      `json:"Exp"`
 		Types       []string `json:"types"`
 		Hp          int      `json:"HP"`
 		Atk         int      `json:"ATK"`
@@ -72,9 +74,9 @@ type (
 	}
 
 	Player struct {
-		Name                  string
+		Name                  string `json:"PlayerName"`
 		Addr                  *net.UDPAddr
-		Pokemons              map[string]PlayerPokemon
+		Pokemons              map[string]PlayerPokemon // string là pokemon ID
 		BattlePokemon         map[string]BattlePokemon
 		battleRequestSends    map[string]string // store number of request that a player send: 'map[receivers]sender'
 		battleRequestReceives map[string]string // store number of request that a player get: 'map[senders]receiver'
@@ -109,15 +111,21 @@ type (
 
 var pokedex []Pokemon // pokedex
 
-var players = make(map[string]*Player) // list of player
+var playersPokemons []PlayerPokemon // player's Pokemons
+
+var players = make(map[string]*Player) // list of player online
 
 var inBattleWith = make(map[string]string) // check player is in battle or not
 
-var availablePokemons []PlayerPokemon // store pokemons of player | load data failed
+var gameStates = make(map[int64]*Battle) // battles
 
-var BattlePokemons []BattlePokemon // chưa load data
-
-var gameStates = make(map[int64]*Battle)
+func loadPlayerPokemon(filename string) error {
+	data, err := ioutil.ReadFile(filename)
+	if err != nil {
+		return err
+	}
+	return json.Unmarshal(data, &playersPokemons) // gán data vào pokedex
+}
 
 func main() {
 	// Load the pokedex data from the JSON file
@@ -126,9 +134,9 @@ func main() {
 		fmt.Println("Error loading pokedex data:", err)
 	}
 
-	// Load the pokedex data from the JSON file
-	if err := loadPokemonData("src\\playersPokemon.json"); err != nil {
-		fmt.Println("Error loading players' pokemons data:", err)
+	err = loadPlayerPokemon(playerpokemonsData)
+	if err != nil {
+		fmt.Println("Error loading pokedex data:", err)
 	}
 
 	udpAddr, err := net.ResolveUDPAddr(TYPE, HOST+":"+PORT)
@@ -565,14 +573,6 @@ func loadPokemonData(filename string) error {
 	return nil
 }
 
-func formatPokemonList() string {
-	var sb strings.Builder
-	for _, p := range availablePokemons {
-		sb.WriteString(fmt.Sprintf("%s (HP: %d, Attack: %d)\n", p.Name, p.Hp, p.Atk))
-	}
-	return sb.String()
-}
-
 func isInBattle(p string) bool {
 	_, exists := inBattleWith[p]
 	if !exists {
@@ -580,14 +580,6 @@ func isInBattle(p string) bool {
 	} else {
 		return true
 	}
-}
-
-func (p *Player) chooseThreePokemons(pokemon string) {
-
-}
-
-func checkFirstTurn(player1 *net.UDPAddr, player2 *net.UDPAddr) {
-
 }
 
 func broadcastMessage(message string, senderName string, conn *net.UDPConn) {
@@ -703,6 +695,15 @@ func checkSpeed(pAtk *BattlePokemon, pRecive *BattlePokemon) string {
 
 func getNanoTime() int64 {
 	return time.Now().UnixNano()
+}
+
+func findPokemonByName(name string) *Pokemon {
+	for _, p := range pokedex {
+		if p.Name == name {
+			return &p
+		}
+	}
+	return nil
 }
 
 // func (battle *Battle) Surrender(senderName string) {
