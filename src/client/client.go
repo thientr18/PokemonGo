@@ -101,12 +101,12 @@ func receiveMessages(addr *net.UDPAddr, conn *net.UDPConn) {
 		if strings.HasPrefix(response, "@pokemon_list_pick") {
 			fmt.Println("Your pokemons list: ")
 			fmt.Println(strings.TrimPrefix(response, "@pokemon_list"))
-			fmt.Println("Choose your three pokemons for battle!\n(@pick pokemon1 pokemon2 pokemon3)")
+			fmt.Println("Choose your three pokemons for battle!\n(@pick pokemon1_ID pokemon2_ID pokemon3_ID)")
 			continue
 		}
 
 		if strings.Contains(response, "@pokemon_pick") {
-			fmt.Println("Choose your three pokemons for battle!\n(@pick pokemon1 pokemon2 pokemon3)")
+			fmt.Println("Choose your three pokemons for battle!\n(@pick pokemon1_ID pokemon2_ID pokemon3_ID)")
 			continue
 		}
 

@@ -387,6 +387,7 @@ func handleMessage(message string, addr *net.UDPAddr, conn *net.UDPConn) {
 
 							if activeOpponent.Hp <= 0 {
 								conn.WriteToUDP([]byte("WIN|"+senderName), addr)
+
 								// delete the battle
 								// set trạng thái player về ban đầu
 							} else {
