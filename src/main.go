@@ -105,18 +105,9 @@ type (
 		Current        int
 		Status         string // "waiting", "inviting", "active"
 	}
-
-	// GameState struct {
-	// 	mu      sync.Mutex
-	// 	Battles map[string]*Battle
-	// 	Players map[string]*Player
-	// }
 )
 
-// var gameState = GameState{
-// 	Battles: make(map[string]*Battle),
-// 	Players: make(map[string]*Player),
-// }
+var gameStates = make(map[int64]Battle)
 
 var pokedex []Pokemon // pokedex
 
@@ -127,8 +118,6 @@ var inBattleWith = make(map[string]string) // check player is in battle or not
 var availablePokemons []PlayerPokemon // store pokemons of player | load data failed
 
 var BattlePokemons []BattlePokemon // chưa load data
-
-var gameStates = make(map[int64]Battle)
 
 func main() {
 	// Load the pokedex data from the JSON file
@@ -259,12 +248,6 @@ func handleMessage(message string, addr *net.UDPAddr, conn *net.UDPConn) {
 
 				if players[senderName].battleRequestReceives[opponent] == senderName &&
 					players[opponent].battleRequestSends[senderName] == opponent {
-					sendMessage("You accepted a battle with player '"+opponent+"'", addr, conn)
-					sendMessage("@accepted_battle", addr, conn)
-
-					sendMessage("Your battle request with player '"+senderName+"' is accepted!", players[opponent].Addr, conn)
-					sendMessage("@accepted_battle", players[opponent].Addr, conn)
-
 					inBattleWith[senderName] = opponent
 					inBattleWith[opponent] = senderName
 
@@ -272,9 +255,16 @@ func handleMessage(message string, addr *net.UDPAddr, conn *net.UDPConn) {
 					delete(players[senderName].battleRequestReceives, opponent)
 
 					var id = getNanoTime()
+
+					gameStates[id] = Battle{
+						battleID: id,
+						Players:  make(map[string]*Player),
+						Status:   "waiting",
+					}
+
 					gameStates[id].Players[senderName] = players[senderName]
 					gameStates[id].Players[opponent] = players[opponent]
-					gameStates[id].Status = "waiting"
+
 					players[senderName] = &Player{
 						battleID: id,
 					}
@@ -282,6 +272,11 @@ func handleMessage(message string, addr *net.UDPAddr, conn *net.UDPConn) {
 						battleID: id,
 					}
 
+					sendMessage("You accepted a battle with player '"+opponent+"'", addr, conn)
+					sendMessage("@accepted_battle", addr, conn)
+
+					sendMessage("Your battle request with player '"+senderName+"' is accepted!", players[opponent].Addr, conn)
+					sendMessage("@accepted_battle", players[opponent].Addr, conn)
 				} else {
 					sendMessage("Invalid acception! (WRONG opppent name or NOT RECEIVES battle request from this opponent)", addr, conn)
 				}
@@ -392,7 +387,9 @@ func handleMessage(message string, addr *net.UDPAddr, conn *net.UDPConn) {
 						}
 					}
 					if len(gameStates[players[senderName].battleID].ActivePokemons) == 6 { // Both players have chosen their Pokémon
-						gameStates[players[senderName].battleID].Status = "active"
+						gameStates[players[senderName].battleID] = Battle{
+							Status: "active",
+						}
 						sendMessage("@pokemon_start_battle", addr, conn)
 					} else {
 						sendMessage("@pokemon_chosen", addr, conn)
