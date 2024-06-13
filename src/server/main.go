@@ -415,11 +415,72 @@ func handleMessage(message string, addr *net.UDPAddr, conn *net.UDPConn) {
 						}
 					}
 				}
+
+			case "@surrender":
+				battle := gameState.Battles[senderName]
+
+				surrenderer, exists := battle.Players[senderName]
+				if !exists {
+					fmt.Println("Error: Surrenderer not found in the battle.")
+					return
+				}
+
+				var opponent *Player
+				for name, player := range battle.Players {
+					if name != senderName {
+						opponent = player
+						break
+					}
+				}
+
+				if opponent == nil {
+					fmt.Println("Error: No opponent found.")
+					return
+				}
+
+				winner := opponent
+
+				battle.Status = "finished"
+
+				sendMessage("You surrendered. "+winner.Name+" wins!", surrenderer.Addr, conn)
+				sendMessage("Your opponent surrendered. You win!", opponent.Addr, conn)
+
+				totalExp := 0
+				for _, pokemon := range surrenderer.Pokemons {
+					totalExp += pokemon.Exp //total exp of loser pokemon after picked
+				} //fix this??? but it is wrong logic
+
+				ExpToDistribute := totalExp / 3 //distribute three pokemon on loser team to winning team
+				//correct logic
+
+				for _, pokemon := range winner.Pokemons {
+					pokemon.Exp += ExpToDistribute //total exp of winnder
+				} //correct logic
+
+				fmt.Printf("%s's Pokemon after battle: \n", winner.Pokemons)
+				for _, pokemon := range winner.Pokemons {
+					fmt.Printf("%s\n", pokemon)
+				}
+
+				delete(inBattleWith, senderName)
+				delete(inBattleWith, opponent.Name)
+
+				fmt.Printf("Player '%s' surrendered. Player '%s' wins!\n", senderName, winner.Name)
+
+				//from here this code belongs to the method
+				// game, exists := gameState.Battles[senderName]
+				// if !exists {
+				// 	sendMessage("No active game found", addr, conn)
+				// 	break
+				// }
+				// game.Surrender(senderName)
+
 			case "@y":
 				sendMessage("@pokemon_list_pick"+formatPokemonList(), addr, conn)
 			case "@n":
 
 				sendMessage("@pokemon_pick", addr, conn)
+
 			default:
 				sendMessage("Invalid command 2", addr, conn)
 			}
@@ -523,3 +584,53 @@ func loadPokedex(filename string) error {
 	}
 	return json.Unmarshal(data, &pokedex)
 }
+
+// func (battle *Battle) Surrender(senderName string) {
+// 	surrenderer, exists := battle.Players[senderName]
+// 	if !exists {
+// 		fmt.Println("Error: Surrenderer not found in the battle.")
+// 		return
+// 	}
+
+// 	var opponent *Player
+// 	for name, player := range battle.Players {
+// 		if name != senderName {
+// 			opponent = player
+// 			break
+// 		}
+// 	}
+
+// 	if opponent == nil {
+// 		fmt.Println("Error: No opponent found.")
+// 		return
+// 	}
+
+// 	winner := opponent
+
+// 	battle.Status = "finished"
+
+// 	sendMessage("You surrendered. "+winner.Name+" wins!", surrenderer.Addr, conn)
+// 	sendMessage("Your opponent surrendered. You win!", opponent.Addr, conn)
+
+// 	totalExp := 0
+// 	for _, pokemon := range surrenderer.Pokemons {
+// 		totalExp += pokemon.Exp //total exp of loser pokemon after picked
+// 	} //fix this??? but it is wrong logic
+
+// 	ExpToDistribute := totalExp / 3 //distribute three pokemon on loser team to winning team
+// 	//correct logic
+
+// 	for _, pokemon := range winner.Pokemons {
+// 		pokemon.Exp += ExpToDistribute //total exp of winnder
+// 	} //correct logic
+
+// 	fmt.Printf("%s's Pokemon after battle: \n", winner.Pokemons)
+// 	for _, pokemon := range winner.Pokemons {
+// 		fmt.Printf("%s\n", pokemon)
+// 	}
+
+// 	delete(inBattleWith, senderName)
+// 	delete(inBattleWith, opponent.Name)
+
+// 	fmt.Printf("Player '%s' surrendered. Player '%s' wins!\n", senderName, winner.Name)
+// }
