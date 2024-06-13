@@ -343,7 +343,7 @@ func handleMessage(message string, addr *net.UDPAddr, conn *net.UDPConn) {
 				if game, exists := gameState.Battles[senderName]; exists && game.Status == "waiting" {
 					for i := 1; i < 4; i++ {
 						chosen := parts[i] // choose: Pokemon picked
-						if p, ok := gameState.Players[senderName].BattlePokemon[chosen]; ok {
+						if p, ok := gameState.Players[senderName].Pokemons[chosen]; ok {
 							game.ActivePokemons[senderName+"_"+chosen] = BattlePokemon{Name: p.Name,
 								ID:    p.ID,
 								Level: p.Level,
@@ -375,7 +375,7 @@ func handleMessage(message string, addr *net.UDPAddr, conn *net.UDPConn) {
 							sendMessage("Not your turn!", addr, conn)
 						}
 
-						opponentID := game.TurnOrder[(game.Current+1)%len(game.TurnOrder)] // len = 2, chưa hiẻu lắm nhưng nếu attack thì sẽ set cái TurnOrder cho đối thủ
+						opponentID := game.TurnOrder[(game.Current+1)%len(game.TurnOrder)] // len = 2, check nếu đúng là turn của đối thủ thí bị trừ máu
 						if _, ok := game.Players[opponentID]; ok {
 
 							activePlayer := game.ActivePokemons[senderName+"_"+game.TurnOrder[game.Current]]
@@ -387,8 +387,9 @@ func handleMessage(message string, addr *net.UDPAddr, conn *net.UDPConn) {
 							game.ActivePokemons[opponentID+"_"+game.TurnOrder[(game.Current+1)%len(game.TurnOrder)]] = activeOpponent
 
 							if activeOpponent.Hp <= 0 {
-
 								conn.WriteToUDP([]byte("WIN|"+senderName), addr)
+								// delete the battle
+								// set trạng thái player về ban đầu
 							} else {
 								conn.WriteToUDP([]byte("ATTACKED|"+senderName), addr)
 								game.Current = (game.Current + 1) % len(game.TurnOrder) // Change turn after attack
@@ -400,17 +401,17 @@ func handleMessage(message string, addr *net.UDPAddr, conn *net.UDPConn) {
 				for _, game := range gameState.Battles {
 					if player, ok := game.Players[senderName]; ok {
 						if game.TurnOrder[game.Current] != senderName {
-							conn.WriteToUDP([]byte("ERROR|Not your turn"), addr)
-							return
+							sendMessage("Not your turn", addr, conn)
+							break
 						}
-						if len(parts) == 3 {
-							newActive := parts[2]
+						if len(parts) == 2 {
+							newActive := parts[1]
 							if _, ok := player.Pokemons[newActive]; ok {
 								game.TurnOrder[game.Current] = newActive
-								conn.WriteToUDP([]byte("CHANGED|"+newActive), addr)
+								sendMessage("@changed", addr, conn)
 								game.Current = (game.Current + 1) % len(game.TurnOrder)
 							} else {
-								conn.WriteToUDP([]byte("ERROR|Invalid Pokémon"), addr)
+								sendMessage("Invalid Pokemon", addr, conn)
 							}
 						}
 					}
