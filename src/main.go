@@ -100,7 +100,7 @@ type (
 	Battle struct {
 		battleID       int64
 		Players        map[string]*Player
-		ActivePokemons map[string]BattlePokemon // Store active Pokemons in the battle
+		ActivePokemons map[string]*BattlePokemon // Store active Pokemons in the battle
 		TurnOrder      []string
 		Current        int
 		Status         string // "waiting", "inviting", "active"
@@ -117,7 +117,7 @@ var availablePokemons []PlayerPokemon // store pokemons of player | load data fa
 
 var BattlePokemons []BattlePokemon // chưa load data
 
-var gameStates = make(map[int64]Battle)
+var gameStates = make(map[int64]*Battle)
 
 func main() {
 	// Load the pokedex data from the JSON file
@@ -183,6 +183,7 @@ func handleMessage(message string, addr *net.UDPAddr, conn *net.UDPConn) {
 				} else {
 					username := parts[1]
 					players[username] = &Player{
+						battleID:              0,
 						Name:                  username,
 						Addr:                  addr,
 						battleRequestSends:    make(map[string]string),
@@ -258,7 +259,7 @@ func handleMessage(message string, addr *net.UDPAddr, conn *net.UDPConn) {
 
 					var id = getNanoTime()
 
-					gameStates[id] = Battle{
+					gameStates[id] = &Battle{
 						battleID: id,
 						Players:  make(map[string]*Player),
 						Status:   "waiting",
@@ -281,6 +282,9 @@ func handleMessage(message string, addr *net.UDPAddr, conn *net.UDPConn) {
 						battleRequestSends:    make(map[string]string),
 						battleRequestReceives: make(map[string]string),
 					}
+
+					players[opponent].battleID = id
+					players[opponent].battleID = id
 
 					sendMessage("You accepted a battle with player '"+opponent+"'", addr, conn)
 					sendMessage("@accepted_battle", addr, conn)
@@ -378,7 +382,8 @@ func handleMessage(message string, addr *net.UDPAddr, conn *net.UDPConn) {
 					for i := 1; i < 4; i++ {
 						chosen := strings.Split(message, " ")[i] // choose: Pokemon picked
 						if p, ok := gameStates[players[senderName].battleID].Players[senderName].Pokemons[chosen]; ok {
-							gameStates[players[senderName].battleID].ActivePokemons[senderName+"_"+chosen] = BattlePokemon{Name: p.Name,
+							gameStates[players[senderName].battleID].ActivePokemons[senderName+"_"+chosen] = &BattlePokemon{
+								Name:        p.Name,
 								ID:          p.ID,
 								Level:       p.Level,
 								Exp:         p.Exp,
@@ -390,16 +395,13 @@ func handleMessage(message string, addr *net.UDPAddr, conn *net.UDPConn) {
 								SpDef:       p.SpDef,
 								Speed:       p.Speed,
 								TypeDefense: p.TypeDefense}
-							fmt.Println("error")
 						} else {
 							sendMessage("Invalid pokemons selection!", addr, conn)
 							break
 						}
 					}
 					if len(gameStates[players[senderName].battleID].ActivePokemons) == 6 { // Both players have chosen their Pokémon
-						gameStates[players[senderName].battleID] = Battle{
-							Status: "active",
-						}
+						gameStates[players[senderName].battleID].Status = "active"
 						sendMessage("@pokemon_start_battle", addr, conn)
 					} else {
 						sendMessage("@pokemon_pick", addr, conn)
@@ -538,7 +540,6 @@ func handleMessage(message string, addr *net.UDPAddr, conn *net.UDPConn) {
 				sendMessage("@pokemon_list_pick"+formatPokemonList(), addr, conn)
 			case "@n":
 				sendMessage("@pokemon_pick", addr, conn)
-
 			default:
 				sendMessage("Invalid command 2", addr, conn)
 			}
@@ -642,7 +643,7 @@ func loadPokedex(filename string) error {
 	}
 	return json.Unmarshal(data, &pokedex) // gán data vào pokedex
 }
-func getDmgNumber(pAtk BattlePokemon, pRecive BattlePokemon) float32 {
+func getDmgNumber(pAtk *BattlePokemon, pRecive *BattlePokemon) float32 {
 	var dmg float32
 	var types = make(map[string]float32)
 
@@ -685,7 +686,7 @@ func getDmgNumber(pAtk BattlePokemon, pRecive BattlePokemon) float32 {
 	return dmg
 
 }
-func checkSpeed(pAtk BattlePokemon, pRecive BattlePokemon) string {
+func checkSpeed(pAtk *BattlePokemon, pRecive *BattlePokemon) string {
 	if pAtk.Speed > pRecive.Speed {
 		return "pLayer"
 	} else if pAtk.Speed > pRecive.Speed {
