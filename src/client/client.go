@@ -85,16 +85,16 @@ func receiveMessages(conn *net.UDPConn) {
 			break
 		}
 
-		if strings.HasPrefix(response, "@pokemon_list_pick") {
+		if strings.Contains(response, "@list_then_pick_pokemon") {
 			fmt.Println("Your pokemons list: ")
-			fmt.Println(strings.TrimPrefix(response, "@pokemon_list_pick"))
+			fmt.Println(strings.TrimPrefix(response, "@list_then_pick_pokemon"))
 			fmt.Println("Choose your three pokemons for battle!\n(@pick pokemon1_ID pokemon2_ID pokemon3_ID)")
 			continue
 		}
 
-		if strings.HasPrefix(response, "@pokemon_list") {
+		if strings.Contains(response, "@list_pokemon_only") {
 			fmt.Println("Your pokemons list: ")
-			fmt.Println(strings.TrimPrefix(response, "@pokemon_list"))
+			fmt.Println(strings.TrimPrefix(response, "@list_pokemon_only"))
 			continue
 		}
 
@@ -105,12 +105,12 @@ func receiveMessages(conn *net.UDPConn) {
 			continue
 		}
 
-		if strings.Contains(response, "@pokemon_pick") {
+		if strings.Contains(response, "@pick_only") {
 			fmt.Println("Choose your three pokemons for battle!\n(@pick pokemon1_ID pokemon2_ID pokemon3_ID)")
 			continue
 		}
 
-		if strings.Contains(response, "@pokemon_piked") {
+		if strings.Contains(response, "@pokemon_picked") {
 			fmt.Println("Pokémon picked successfully!\nWaiting your opponent...")
 			continue
 		}
@@ -136,7 +136,7 @@ func receiveMessages(conn *net.UDPConn) {
 		}
 
 		if strings.Contains(response, "@pokedex") {
-			fmt.Println(strings.CutPrefix(response, "@pokedex"))
+			fmt.Println(strings.TrimPrefix(response, "@pokedex"))
 			continue
 		}
 

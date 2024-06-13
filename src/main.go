@@ -334,7 +334,7 @@ func handleMessage(message string, addr *net.UDPAddr, conn *net.UDPConn) {
 				fmt.Printf("Pokémons of player %s:\n", senderName)
 				for _, pokemon := range playerPokemons {
 					str := fmt.Sprintf("Pokemon ID: %s, Name: %s, Level: %d, HP: %d\n", pokemon.ID, pokemon.Name, pokemon.Level, pokemon.Hp)
-					sendMessage("@pokemon_list"+str, addr, conn)
+					sendMessage("@list_pokemon_only"+str, addr, conn)
 				}
 
 			case "@pokedex":
@@ -427,11 +427,13 @@ func handleMessage(message string, addr *net.UDPAddr, conn *net.UDPConn) {
 							break
 						}
 					}
+
 					if len(gameStates[players[senderName].battleID].ActivePokemons) == 6 { // Both players have chosen their Pokémon
 						gameStates[players[senderName].battleID].Status = "active"
 						sendMessage("@pokemon_start_battle", addr, conn)
+						sendMessage("@pokemon_start_battle", players[inBattleWith[senderName]].Addr, conn)
 					} else {
-						sendMessage("@pokemon_pick", addr, conn)
+						sendMessage("@pokemon_picked", addr, conn)
 					}
 				} else {
 					fmt.Println()
@@ -562,9 +564,9 @@ func handleMessage(message string, addr *net.UDPAddr, conn *net.UDPConn) {
 					str += fmt.Sprintf("Pokemon ID: %s, Name: %s, Level: %d, HP: %d\n", pokemon.ID, pokemon.Name, pokemon.Level, pokemon.Hp)
 
 				}
-				sendMessage("@pokemon_list_pick"+str, addr, conn)
+				sendMessage("@list_then_pick_pokemon"+str, addr, conn)
 			case "@n":
-				sendMessage("@pokemon_pick", addr, conn)
+				sendMessage("@pick_only", addr, conn)
 			default:
 				sendMessage("Invalid command 2", addr, conn)
 			}
