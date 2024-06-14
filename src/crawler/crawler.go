@@ -21,13 +21,13 @@ type Pokedex struct {
 	PokeInfo PokeInfo `json:"Poke-Information"`
 }
 type PokeInfo struct {
-	Hp          int         `json:"HP"`
-	Atk         int         `json:"ATK"`
-	Def         int         `json:"DEF"`
-	SpAtk       int         `json:"Sp.Atk"`
-	SpDef       int         `json:"Sp.Def"`
-	Speed       int         `json:"Speed"`
-	TypeDefense TypeDef     `json:"Type-Defenses"`
+	Hp          int     `json:"HP"`
+	Atk         int     `json:"ATK"`
+	Def         int     `json:"DEF"`
+	SpAtk       int     `json:"Sp.Atk"`
+	SpDef       int     `json:"Sp.Def"`
+	Speed       int     `json:"Speed"`
+	TypeDefense TypeDef `json:"Type-Defenses"`
 }
 type TypeDef struct {
 	Normal   float32
@@ -51,12 +51,12 @@ type TypeDef struct {
 }
 
 type ExpStats struct {
-	GiveExp int
-	GiveHP int 
-	GiveATK int 
-	GiveDef int
+	GiveExp   int
+	GiveHP    int
+	GiveATK   int
+	GiveDef   int
 	GiveSpATK int
-	GiveSpDef int 
+	GiveSpDef int
 	GiveSpeed int
 }
 
@@ -114,7 +114,7 @@ func getPokedex(n *html.Node) []Pokedex {
 	var currentPoke Pokedex
 	var walk func(n *html.Node)
 	walk = func(n *html.Node) {
-		if n.Type == html.ElementNode && n.Data == "span" {
+		if n.Type == html.ElementNode && n.Data == "span" { // take dât in info card
 			for _, attr := range n.Attr {
 				if attr.Key == "class" && attr.Val == "infocard-lg-data text-muted" {
 					PokeId := strings.Split(getOnce(n, "small"), "a")[0]
@@ -132,7 +132,7 @@ func getPokedex(n *html.Node) []Pokedex {
 							currentPoke.Types = append(currentPoke.Types, eachType)
 						}
 					}
-					if currentPoke.Name != ""{
+					if currentPoke.Name != "" {
 						pokemon = append(pokemon, currentPoke)
 						currentPoke = Pokedex{}
 					}
@@ -141,10 +141,10 @@ func getPokedex(n *html.Node) []Pokedex {
 			}
 		}
 		for c := n.FirstChild; c != nil; c = c.NextSibling {
-			walk(c)
+			walk(c) // lấy toàn bộ c
 		}
 	}
-	walk(n)
+	walk(n) // lấy toàn bộ n
 	return pokemon
 }
 

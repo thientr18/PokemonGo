@@ -5,8 +5,7 @@ To chat private:                    @private receiver message
 To request a battle:                @battle opponent
 To accept a battle:                 @accept sender
 To deny a battle:                   @deny sender
-To surrender:                       @surrender
 To pick pokemons:                   @pick pokemonID(in your owned pokemon list)
 To change pokemon:                  @change pokemonID(in your owned pokemon list)
 To acttack:                         @attack
-To change pokemon:                  @change
+To find pokemon info                @pokedex pokemonID

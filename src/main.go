@@ -37,24 +37,24 @@ type (
 		TypeDefense TypeDef  `json:"Type-Defenses"`
 	}
 	TypeDef struct {
-		Normal   float32
-		Fire     float32
-		Water    float32
-		Electric float32
-		Grass    float32
-		Ice      float32
-		Fighting float32
-		Poison   float32
-		Ground   float32
-		Flying   float32
-		Psychic  float32
-		Bug      float32
-		Rock     float32
-		Ghost    float32
-		Dragon   float32
-		Dark     float32
-		Steel    float32
-		Fairy    float32
+		Normal   float32 `json:"Normal"`
+		Fire     float32 `json:"Fire"`
+		Water    float32 `json:"Water"`
+		Electric float32 `json:"Electric"`
+		Grass    float32 `json:"Grass"`
+		Ice      float32 `json:"Ice"`
+		Fighting float32 `json:"Fighting"`
+		Poison   float32 `json:"Poison"`
+		Ground   float32 `json:"Ground"`
+		Flying   float32 `json:"Flying"`
+		Psychic  float32 `json:"Psychic"`
+		Bug      float32 `json:"Bug"`
+		Rock     float32 `json:"Rock"`
+		Ghost    float32 `json:"Ghost"`
+		Dragon   float32 `json:"Dragon"`
+		Dark     float32 `json:"Dark"`
+		Steel    float32 `json:"Steel"`
+		Fairy    float32 `json:"Fairy"`
 	}
 
 	Player struct {
@@ -109,6 +109,7 @@ type (
 		BeatingPokemon map[string]*BattlePokemon
 		CurrentTurn    string
 		Status         string // "waiting", "inviting", "active"
+		PokemonCounter map[string]int
 	}
 )
 
@@ -235,6 +236,11 @@ func handleMessage(message string, addr *net.UDPAddr, conn *net.UDPConn) {
 				nextPart := strings.SplitN(temp, " ", 2)
 				opponent := nextPart[0]
 
+				if opponent == senderName {
+					sendMessage("Invalid command", addr, conn)
+					break
+				}
+
 				if !checkExistedPlayer(opponent) {
 					sendMessage("Error: Opponent did not exist in the server!", addr, conn)
 					break
@@ -277,6 +283,7 @@ func handleMessage(message string, addr *net.UDPAddr, conn *net.UDPConn) {
 						BeatingPokemon: make(map[string]*BattlePokemon),
 						CurrentTurn:    players[senderName].Name,
 						Status:         "waiting",
+						PokemonCounter: make(map[string]int),
 					}
 
 					gameStates[id].Players[senderName] = players[senderName]
@@ -341,7 +348,7 @@ func handleMessage(message string, addr *net.UDPAddr, conn *net.UDPConn) {
 				parts = strings.Split(message, " ")
 				sendMessage("@pokedex"+pokedexScanner(parts[1]), addr, conn)
 			default:
-				sendMessage("Invalid command 1", addr, conn)
+				sendMessage("Invalid command, not in a battle!", addr, conn)
 			}
 		} else {
 			switch command {
@@ -400,7 +407,12 @@ func handleMessage(message string, addr *net.UDPAddr, conn *net.UDPConn) {
 					fmt.Println(len(parts))
 					sendMessage("Invalid pokemons selection!", addr, conn)
 					break
+				} else if parts[1] == parts[2] || parts[1] == parts[3] || parts[2] == parts[3] {
+					fmt.Println(len(parts))
+					sendMessage("Invalid pokemons selection!", addr, conn)
+					break
 				}
+				gameStates[players[senderName].battleID].PokemonCounter[senderName] = 0
 				if _, exists := gameStates[players[senderName].battleID].Players[senderName]; exists &&
 					gameStates[players[senderName].battleID].Status == "waiting" {
 
@@ -421,6 +433,7 @@ func handleMessage(message string, addr *net.UDPAddr, conn *net.UDPConn) {
 								SpDef:       p.SpDef,
 								Speed:       p.Speed,
 								TypeDefense: p.TypeDefense}
+							gameStates[players[senderName].battleID].PokemonCounter[senderName] += 1
 						} else {
 							sendMessage("Invalid pokemons selection!", addr, conn)
 							break
@@ -471,12 +484,14 @@ func handleMessage(message string, addr *net.UDPAddr, conn *net.UDPConn) {
 				}
 				opponent := inBattleWith[senderName]
 				currPoke := findPlayerPokemonByPokeID(opponent, gameStates[id].BeatingPokemon[opponent].ID)
-				gameStates[id].BeatingPokemon[opponent].Hp -= int(getDmgNumber(gameStates[id].BeatingPokemon[senderName], gameStates[id].BeatingPokemon[opponent]))
-				gameStates[id].ActivePokemons[opponent+"_"+currPoke.ID].Hp -= int(getDmgNumber(gameStates[id].BeatingPokemon[senderName], gameStates[id].BeatingPokemon[opponent]))
 
-				msg := fmt.Sprintf("%s hits: %d damages!", gameStates[id].BeatingPokemon[senderName].Name, 100)
+				dmg := int(getDmgNumber(gameStates[id].BeatingPokemon[senderName], gameStates[id].BeatingPokemon[opponent]))
+				// gameStates[id].BeatingPokemon[opponent].Hp -= dmg
+				gameStates[id].ActivePokemons[opponent+"_"+currPoke.ID].Hp -= dmg
+
+				msg := fmt.Sprintf("%s hits: %d damages!", gameStates[id].BeatingPokemon[senderName].Name, dmg)
 				sendMessage(msg, addr, conn)
-				msg = fmt.Sprintf("%s hited: %d damages!", gameStates[id].BeatingPokemon[opponent].Name, 100)
+				msg = fmt.Sprintf("%s hited: %d damages!", gameStates[id].BeatingPokemon[opponent].Name, dmg)
 				sendMessage(msg, players[opponent].Addr, conn)
 
 				msg = fmt.Sprintf("Active Pokemon: %s (HP: %d)", gameStates[id].BeatingPokemon[opponent].Name, gameStates[id].BeatingPokemon[opponent].Hp)
@@ -486,22 +501,29 @@ func handleMessage(message string, addr *net.UDPAddr, conn *net.UDPConn) {
 
 				gameStates[id].CurrentTurn = opponent
 
-				if gameStates[id].BeatingPokemon[opponent].Hp < 1 {
+				if gameStates[id].BeatingPokemon[opponent].Hp <= 0 {
 					sendMessage("Your pokemon died, change the order!", players[opponent].Addr, conn)
 					sendMessage("@pokemon_died", players[opponent].Addr, conn)
-					delete(gameStates[id].ActivePokemons, opponent)
+					delete(gameStates[id].ActivePokemons, opponent+"_"+gameStates[id].BeatingPokemon[opponent].ID)
 					delete(gameStates[id].BeatingPokemon, opponent)
+					gameStates[id].PokemonCounter[opponent] -= 1
 				}
 
-				if len(gameStates[id].ActivePokemons) > 0 {
+				if gameStates[id].PokemonCounter[opponent] > 0 {
 					sendMessage("@opponent_attacked", players[opponent].Addr, conn)
 					sendMessage("@you_acttacked", addr, conn)
 				} else {
 					sendMessage("@win", addr, conn)
 					sendMessage("@lose", players[opponent].Addr, conn)
+					delete(inBattleWith, opponent)
+					delete(inBattleWith, senderName)
 				}
 			case "@change":
 				parts := strings.Split(message, " ")
+				if len(parts) < 2 {
+					sendMessage("Invalid pokemon name", addr, conn)
+					break
+				}
 				id := players[senderName].battleID
 				if gameStates[id].CurrentTurn != senderName {
 					sendMessage("Not your turn!", addr, conn)
@@ -509,67 +531,15 @@ func handleMessage(message string, addr *net.UDPAddr, conn *net.UDPConn) {
 				}
 
 				opponent := inBattleWith[senderName]
+				pokemonKey := senderName + "_" + parts[1]
 
-				if _, ok := players[senderName].Pokemons[parts[1]]; ok {
-					gameStates[id].CurrentTurn = opponent
-					gameStates[id].BeatingPokemon[senderName] = gameStates[id].ActivePokemons[senderName+"_"+parts[1]]
+				if activePokemon, exists := gameStates[id].ActivePokemons[pokemonKey]; exists {
+					gameStates[id].BeatingPokemon[senderName] = activePokemon
 					sendMessage("@changed", addr, conn)
+					gameStates[id].CurrentTurn = opponent
 				} else {
 					sendMessage("Invalid Pokemon", addr, conn)
-					sendMessage("@pokemon_died", addr, conn)
 				}
-
-			// case "@surrender":
-			// 	battle := gameStates[players[senderName].battleID]
-
-			// 	surrenderer, exists := battle.Players[senderName]
-			// 	if !exists {
-			// 		fmt.Println("Error: Surrenderer not found in the battle.")
-			// 		return
-			// 	}
-
-			// 	var opponent *Player
-			// 	for name, player := range battle.Players {
-			// 		if name != senderName {
-			// 			opponent = player
-			// 			break
-			// 		}
-			// 	}
-
-			// 	if opponent == nil {
-			// 		fmt.Println("Error: No opponent found.")
-			// 		return
-			// 	}
-
-			// 	winner := opponent
-
-			// 	battle.Status = "finished"
-
-			// 	sendMessage("You surrendered. "+winner.Name+" wins!", surrenderer.Addr, conn)
-			// 	sendMessage("Your opponent surrendered. You win!", opponent.Addr, conn)
-
-			// 	totalExp := 0
-			// 	for _, pokemon := range surrenderer.Pokemons {
-			// 		totalExp += pokemon.Exp //total exp of loser pokemon after picked
-			// 	} //fix this??? but it is wrong logic
-
-			// 	ExpToDistribute := totalExp / 3 //distribute three pokemon on loser team to winning team
-			// 	//correct logic
-
-			// 	for _, pokemon := range winner.Pokemons {
-			// 		pokemon.Exp += ExpToDistribute //total exp of winnder
-			// 	} //correct logic
-
-			// 	fmt.Printf("%s's Pokemon after battle: \n", winner.Name)
-			// 	for _, pokemon := range winner.Pokemons {
-			// 		fmt.Printf("%d\n", pokemon.Exp)
-			// 	}
-
-			// 	delete(inBattleWith, senderName)
-			// 	delete(inBattleWith, opponent.Name)
-
-			// 	fmt.Printf("Player '%s' surrendered. Player '%s' wins!\n", senderName, winner.Name)
-
 			case "@y":
 				playerPokemons := findPlayerPokemonByPlayer(senderName)
 				fmt.Printf("Pokémons of player %s:\n", senderName)
@@ -586,8 +556,7 @@ func handleMessage(message string, addr *net.UDPAddr, conn *net.UDPConn) {
 			}
 		}
 	} else {
-		fmt.Println("Invalid command 3")
-		sendMessage("Invalid command 3", addr, conn)
+		sendMessage("Invalid command in a battle", addr, conn)
 	}
 }
 
@@ -653,8 +622,8 @@ func pokedexScanner(pokeName string) string {
 	if pokemon == nil {
 		return fmt.Sprintf("Pokémon with name %s not found", pokeName)
 	}
-	return fmt.Sprintf("ID: %s\nName: %s\nTypes: %v\nBase Stats: HP: %d, ATK: %d, DEF: %d, Sp.Atk: %d, Sp.Def: %d, Speed: %d",
-		pokemon.Id, pokemon.Name, pokemon.PokeInfo.Types, pokemon.PokeInfo.Hp, pokemon.PokeInfo.Atk, pokemon.PokeInfo.Def,
+	return fmt.Sprintf("ID: %s\nName: %s\nTypes: [%s]\nBase Stats: HP: %d, ATK: %d, DEF: %d, Sp.Atk: %d, Sp.Def: %d, Speed: %d",
+		pokemon.Id, pokemon.Name, pokemon.PokeInfo.Types[:], pokemon.PokeInfo.Hp, pokemon.PokeInfo.Atk, pokemon.PokeInfo.Def,
 		pokemon.PokeInfo.SpAtk, pokemon.PokeInfo.SpDef, pokemon.PokeInfo.Speed)
 }
 
@@ -740,6 +709,10 @@ func getDmgNumber(pAtk *BattlePokemon, pRecive *BattlePokemon) int {
 	choseAtk := rand.Intn(2)
 	if choseAtk == 0 {
 		dmg = float32(pAtk.Atk) - float32(pRecive.Def)
+		if dmg < 0 {
+			dmg = 0
+		}
+		return int(dmg)
 	} else {
 		var typeDefense float32 = 0.0
 		for _, pAtkTypes := range pAtk.Types {
@@ -752,9 +725,11 @@ func getDmgNumber(pAtk *BattlePokemon, pRecive *BattlePokemon) int {
 			}
 		}
 		dmg = float32(pAtk.SpAtk)*typeDefense - float32(pRecive.SpDef)
+		if dmg < 0 {
+			dmg = 0
+		}
+		return int(dmg)
 	}
-	return int(dmg)
-
 }
 func checkSpeed(pAtk *BattlePokemon, pRecive *BattlePokemon) string {
 	if pAtk.Speed > pRecive.Speed {
@@ -769,53 +744,3 @@ func checkSpeed(pAtk *BattlePokemon, pRecive *BattlePokemon) string {
 func getNanoTime() int64 {
 	return time.Now().UnixNano()
 }
-
-// func (battle *Battle) Surrender(senderName string) {
-// 	surrenderer, exists := battle.Players[senderName]
-// 	if !exists {
-// 		fmt.Println("Error: Surrenderer not found in the battle.")
-// 		return
-// 	}
-
-// 	var opponent *Player
-// 	for name, player := range battle.Players {
-// 		if name != senderName {
-// 			opponent = player
-// 			break
-// 		}
-// 	}
-
-// 	if opponent == nil {
-// 		fmt.Println("Error: No opponent found.")
-// 		return
-// 	}
-
-// 	winner := opponent
-
-// 	battle.Status = "finished"
-
-// 	sendMessage("You surrendered. "+winner.Name+" wins!", surrenderer.Addr, conn)
-// 	sendMessage("Your opponent surrendered. You win!", opponent.Addr, conn)
-
-// 	totalExp := 0
-// 	for _, pokemon := range surrenderer.Pokemons {
-// 		totalExp += pokemon.Exp //total exp of loser pokemon after picked
-// 	} //fix this??? but it is wrong logic
-
-// 	ExpToDistribute := totalExp / 3 //distribute three pokemon on loser team to winning team
-// 	//correct logic
-
-// 	for _, pokemon := range winner.Pokemons {
-// 		pokemon.Exp += ExpToDistribute //total exp of winnder
-// 	} //correct logic
-
-// 	fmt.Printf("%s's Pokemon after battle: \n", winner.Pokemons)
-// 	for _, pokemon := range winner.Pokemons {
-// 		fmt.Printf("%s\n", pokemon)
-// 	}
-
-// 	delete(inBattleWith, senderName)
-// 	delete(inBattleWith, opponent.Name)
-
-// 	fmt.Printf("Player '%s' surrendered. Player '%s' wins!\n", senderName, winner.Name)
-// }

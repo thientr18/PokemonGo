@@ -134,11 +134,13 @@ func receiveMessages(addr *net.UDPAddr, conn *net.UDPConn) {
 
 		if strings.Contains(response, "@win") {
 			fmt.Println("You win!")
+			delete(canNotAttack, addr)
 			continue
 		}
 
 		if strings.Contains(response, "@lose") {
 			fmt.Println("You lose :<")
+			delete(canNotAttack, addr)
 			continue
 		}
 
