@@ -106,8 +106,8 @@ type (
 		battleID       int64
 		Players        map[string]*Player
 		ActivePokemons map[string]*BattlePokemon // Store active Pokemons in the battle
-		TurnOrder      []string
-		Current        int
+		BeatingPokemon map[string]*BattlePokemon
+		CurrentTurn    string
 		Status         string // "waiting", "inviting", "active"
 	}
 )
@@ -274,8 +274,8 @@ func handleMessage(message string, addr *net.UDPAddr, conn *net.UDPConn) {
 						battleID:       id,
 						Players:        make(map[string]*Player),
 						ActivePokemons: make(map[string]*BattlePokemon),
-						TurnOrder:      []string{},
-						Current:        0,
+						BeatingPokemon: make(map[string]*BattlePokemon),
+						CurrentTurn:    players[senderName].Name,
 						Status:         "waiting",
 					}
 
@@ -395,7 +395,8 @@ func handleMessage(message string, addr *net.UDPAddr, conn *net.UDPConn) {
 					sendMessage("Invalid acception! (WRONG opppent name or NOT RECEIVES battle request from this opponent)", addr, conn)
 				}
 			case "@pick":
-				if len(strings.Split(message, " ")) != 4 {
+				parts = strings.Split(message, " ")
+				if len(parts) != 4 {
 					fmt.Println(len(parts))
 					sendMessage("Invalid pokemons selection!", addr, conn)
 					break
@@ -404,12 +405,10 @@ func handleMessage(message string, addr *net.UDPAddr, conn *net.UDPConn) {
 					gameStates[players[senderName].battleID].Status == "waiting" {
 
 					for i := 1; i < 4; i++ {
-						chosen := strings.Split(message, " ")[i] // choose: Pokemon picked
+						chosen := parts[i] // choose: Pokemon picked
 						p := findPlayerPokemonByPokeID(senderName, chosen)
-						fmt.Println(p.Name)
-						fmt.Println(p.ID)
 						if p != nil {
-							gameStates[players[senderName].battleID].ActivePokemons[senderName+"_"+chosen] = &BattlePokemon{
+							gameStates[players[senderName].battleID].ActivePokemons[senderName+"_"+p.ID] = &BattlePokemon{
 								Name:        p.Name,
 								ID:          p.ID,
 								Level:       p.Level,
@@ -433,24 +432,24 @@ func handleMessage(message string, addr *net.UDPAddr, conn *net.UDPConn) {
 						sendMessage("@pokemon_start_battle", addr, conn)
 						sendMessage("@pokemon_start_battle", players[inBattleWith[senderName]].Addr, conn)
 
-						var counState int = 0
-						for _, game := range gameStates {
-							if counState == 0 {
-								if counState == 0 {
-									opponentID := game.TurnOrder[(game.Current+1)%len(game.TurnOrder)] // len = 2, chưa hiẻu lắm nhưng nếu attack thì sẽ set cái TurnOrder cho đối thủ
-									activePlayer := game.ActivePokemons[senderName+"_"+game.TurnOrder[game.Current]]
-									activeOpponent := game.ActivePokemons[opponentID+"_"+game.TurnOrder[(game.Current+1)%len(game.TurnOrder)]]
-									if checkSpeed(activePlayer, activeOpponent) == "opponent" {
-										game.TurnOrder[game.Current] = opponentID
-										sendMessage("Your opponent attack first!", players[inBattleWith[senderName]].Addr, conn)
-										sendMessage("You attacks first!", addr, conn)
-									} else {
-										game.TurnOrder[game.Current] = senderName
-										sendMessage("Your opponent attack first!", addr, conn)
-										sendMessage("You attacks first!", players[inBattleWith[senderName]].Addr, conn)
-									}
-								}
-							}
+						id := players[senderName].battleID
+						var firstPokemonOpponent = gameStates[id].ActivePokemons[inBattleWith[senderName]+"_"+findPlayerPokemonByPokeID(inBattleWith[senderName], parts[1]).ID]
+						var firstPokemonSenderName = gameStates[id].ActivePokemons[senderName+"_"+findPlayerPokemonByPokeID(senderName, parts[1]).ID]
+
+						gameStates[id].BeatingPokemon[senderName] = firstPokemonSenderName // set pokemon đang đấm nhau hiện tại
+
+						if firstPokemonOpponent.Speed > firstPokemonSenderName.Speed {
+							gameStates[id].CurrentTurn = inBattleWith[senderName]
+						} else if firstPokemonOpponent.Speed < firstPokemonSenderName.Speed {
+							gameStates[id].CurrentTurn = senderName
+						}
+
+						if gameStates[id].CurrentTurn == senderName {
+							sendMessage("You attack first!", addr, conn)
+							sendMessage("Opponent will attack first!", players[inBattleWith[senderName]].Addr, conn)
+						} else {
+							sendMessage("You attack first!", players[inBattleWith[senderName]].Addr, conn)
+							sendMessage("Opponent will attack first!", addr, conn)
 						}
 					} else {
 						sendMessage("@pokemon_picked", addr, conn)
@@ -459,72 +458,49 @@ func handleMessage(message string, addr *net.UDPAddr, conn *net.UDPConn) {
 					fmt.Println()
 					sendMessage("No active game found", addr, conn)
 				}
-			case "@attack": // Ngân sửa
-				var counState int = 0
-				for _, game := range gameStates {
-					// if counState == 0 {
-					// 	opponentID := game.TurnOrder[(game.Current+1)%len(game.TurnOrder)] // len = 2, chưa hiẻu lắm nhưng nếu attack thì sẽ set cái TurnOrder cho đối thủ
-					// 	activePlayer := game.ActivePokemons[senderName+"_"+game.TurnOrder[game.Current]]
-					// 	activeOpponent := game.ActivePokemons[opponentID+"_"+game.TurnOrder[(game.Current+1)%len(game.TurnOrder)]]
-					// 	if checkSpeed(activePlayer, activeOpponent) == "opponent" {
-					// 		game.TurnOrder[game.Current] = opponentID
-					// 	} else {
-					// 		game.TurnOrder[game.Current] = senderName
-					// 	}
-					// }
+			case "@attack":
+				id := players[senderName].battleID
+				if gameStates[id].CurrentTurn != senderName {
+					sendMessage("Not your turn!", addr, conn)
+					break
+				}
+				opponent := inBattleWith[senderName]
+				currPoke := findPlayerPokemonByPokeID(opponent, gameStates[id].BeatingPokemon[opponent].ID)
+				gameStates[id].BeatingPokemon[opponent].Hp -= int(getDmgNumber(gameStates[id].BeatingPokemon[senderName], gameStates[id].BeatingPokemon[opponent]))
+				gameStates[id].ActivePokemons[opponent+"_"+currPoke.ID].Hp -= int(getDmgNumber(gameStates[id].BeatingPokemon[senderName], gameStates[id].BeatingPokemon[opponent]))
+				gameStates[id].CurrentTurn = opponent
 
-					if _, ok := game.Players[senderName]; ok {
-						if game.TurnOrder[game.Current] != senderName { // turn based
-							sendMessage("Not your turn!", addr, conn)
-						}
+				if gameStates[id].BeatingPokemon[opponent].Hp <= 0 {
+					sendMessage("Your pokemon died, change the order!", players[opponent].Addr, conn)
+					sendMessage("@pokemon_died", players[opponent].Addr, conn)
+					delete(gameStates[id].ActivePokemons, opponent)
+					delete(gameStates[id].BeatingPokemon, opponent)
+				}
 
-						opponentID := game.TurnOrder[(game.Current+1)%len(game.TurnOrder)] // len = 2, chưa hiẻu lắm nhưng nếu attack thì sẽ set cái TurnOrder cho đối thủ
-						if _, ok := game.Players[opponentID]; ok {
-
-							activePlayer := game.ActivePokemons[senderName+"_"+game.TurnOrder[game.Current]]
-
-							activeOpponent := game.ActivePokemons[opponentID+"_"+game.TurnOrder[(game.Current+1)%len(game.TurnOrder)]]
-
-							activeOpponent.Hp -= int(getDmgNumber(activePlayer, activeOpponent))
-
-							game.ActivePokemons[opponentID+"_"+game.TurnOrder[(game.Current+1)%len(game.TurnOrder)]] = activeOpponent
-
-							if activeOpponent.Hp <= 0 {
-								delete(game.ActivePokemons, opponentID+"_"+game.TurnOrder[(game.Current+1)%len(game.TurnOrder)])
-							}
-
-							if _, ok := game.ActivePokemons[opponentID]; ok {
-								sendMessage("@opponet_attacked", players[inBattleWith[senderName]].Addr, conn)
-								sendMessage("@you_acttacked", addr, conn)
-								game.Current = (game.Current + 1) % len(game.TurnOrder)
-							} else {
-								conn.WriteToUDP([]byte("@win"+senderName), addr)
-							}
-
-						}
-
-					}
-					counState++
+				if _, ok := gameStates[id].ActivePokemons[opponent]; ok {
+					sendMessage("@opponent_attacked", players[opponent].Addr, conn)
+					sendMessage("@you_acttacked", addr, conn)
+				} else {
+					sendMessage("@win", addr, conn)
+					sendMessage("@lose", players[opponent].Addr, conn)
 				}
 			case "@change":
 				parts := strings.Split(message, " ")
-				for _, game := range gameStates {
-					if player, ok := game.Players[senderName]; ok {
-						if game.TurnOrder[game.Current] != senderName {
-							sendMessage("Not your turn", addr, conn)
-							break
-						}
-						if len(parts) == 2 {
-							newActive := parts[1]
-							if _, ok := player.Pokemons[newActive]; ok {
-								game.TurnOrder[game.Current] = newActive
-								sendMessage("@changed", addr, conn)
-								game.Current = (game.Current + 1) % len(game.TurnOrder)
-							} else {
-								sendMessage("Invalid Pokemon", addr, conn)
-							}
-						}
-					}
+				id := players[senderName].battleID
+				if gameStates[id].CurrentTurn != senderName {
+					sendMessage("Not your turn!", addr, conn)
+					break
+				}
+
+				opponent := inBattleWith[senderName]
+
+				if _, ok := players[senderName].Pokemons[parts[1]]; ok {
+					gameStates[id].CurrentTurn = opponent
+					gameStates[id].BeatingPokemon[senderName] = gameStates[id].ActivePokemons[senderName+"_"+parts[1]]
+					sendMessage("@changed", addr, conn)
+				} else {
+					sendMessage("Invalid Pokemon", addr, conn)
+					sendMessage("@pokemon_died", addr, conn)
 				}
 
 			// case "@surrender":
@@ -770,12 +746,7 @@ func checkSpeed(pAtk *BattlePokemon, pRecive *BattlePokemon) string {
 	} else if pAtk.Speed > pRecive.Speed {
 		return "opponent"
 	} else {
-		var chosePokemon = rand.Intn(1-0+1) + 0
-		if chosePokemon == 0 {
-			return "player"
-		} else {
-			return "opponent"
-		}
+		return "player"
 	}
 }
 

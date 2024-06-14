@@ -12,6 +12,8 @@ import (
 var inBattle = make(map[*net.UDPAddr]bool)
 var mu sync.Mutex
 
+var canNotAttack = make(map[*net.UDPAddr]bool)
+
 func main() {
 	addr, err := net.ResolveUDPAddr("udp", "localhost:8080")
 	if err != nil {
@@ -52,11 +54,15 @@ func main() {
 		}
 	}
 
-	go receiveMessages(conn)
+	go receiveMessages(addr, conn)
 
 	for {
 		text, _ := reader.ReadString('\n')
 		text = strings.TrimSpace(text)
+		if !strings.Contains(text, "@change") && canNotAttack[addr] == true {
+			fmt.Println("Please change new pokemon first!")
+			continue
+		}
 		_, err := conn.Write([]byte(text))
 		if err != nil {
 			fmt.Println("Error sending message:", err)
@@ -66,7 +72,7 @@ func main() {
 	}
 }
 
-func receiveMessages(conn *net.UDPConn) {
+func receiveMessages(addr *net.UDPAddr, conn *net.UDPConn) {
 	buffer := make([]byte, 1024)
 
 	for {
@@ -121,7 +127,8 @@ func receiveMessages(conn *net.UDPConn) {
 		}
 
 		if strings.Contains(response, "@changed") {
-			fmt.Println("Pokémon picked successfully! Now is the oppenonent's turn!")
+			fmt.Println("Pokémon changed successfully! Now is the oppenonent's turn!")
+			delete(canNotAttack, addr)
 			continue
 		}
 
@@ -140,13 +147,18 @@ func receiveMessages(conn *net.UDPConn) {
 			continue
 		}
 
-		if strings.Contains(response, "@attacked") {
+		if strings.Contains(response, "@opponent_attacked") {
 			fmt.Println("Your turn!")
 			continue
 		}
 
 		if strings.Contains(response, "@you_acttacked") {
 			fmt.Println("Opponent's turn!")
+			continue
+		}
+
+		if strings.Contains(response, "@pokemon_died") {
+			canNotAttack[addr] = true
 			continue
 		}
 
