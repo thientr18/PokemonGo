@@ -436,7 +436,8 @@ func handleMessage(message string, addr *net.UDPAddr, conn *net.UDPConn) {
 						var firstPokemonOpponent = gameStates[id].ActivePokemons[inBattleWith[senderName]+"_"+findPlayerPokemonByPokeID(inBattleWith[senderName], parts[1]).ID]
 						var firstPokemonSenderName = gameStates[id].ActivePokemons[senderName+"_"+findPlayerPokemonByPokeID(senderName, parts[1]).ID]
 
-						gameStates[id].BeatingPokemon[senderName] = firstPokemonSenderName // set pokemon đang đấm nhau hiện tại
+						gameStates[id].BeatingPokemon[senderName] = firstPokemonSenderName             // set pokemon đang đấm nhau hiện tại
+						gameStates[id].BeatingPokemon[inBattleWith[senderName]] = firstPokemonOpponent // set pokemon đang đấm nhau hiện tại
 
 						if firstPokemonOpponent.Speed > firstPokemonSenderName.Speed {
 							gameStates[id].CurrentTurn = inBattleWith[senderName]
@@ -446,7 +447,11 @@ func handleMessage(message string, addr *net.UDPAddr, conn *net.UDPConn) {
 
 						if gameStates[id].CurrentTurn == senderName {
 							sendMessage("You attack first!", addr, conn)
+							msg := fmt.Sprintf("Active Pokemon: %s (HP: %d)", gameStates[id].BeatingPokemon[inBattleWith[senderName]].Name, gameStates[id].BeatingPokemon[inBattleWith[senderName]].Hp)
+							sendMessage(msg, players[inBattleWith[senderName]].Addr, conn)
 							sendMessage("Opponent will attack first!", players[inBattleWith[senderName]].Addr, conn)
+							msg = fmt.Sprintf("Active Pokemon: %s (HP: %d)", gameStates[id].BeatingPokemon[senderName].Name, gameStates[id].BeatingPokemon[senderName].Hp)
+							sendMessage(msg, players[senderName].Addr, conn)
 						} else {
 							sendMessage("You attack first!", players[inBattleWith[senderName]].Addr, conn)
 							sendMessage("Opponent will attack first!", addr, conn)
@@ -468,16 +473,27 @@ func handleMessage(message string, addr *net.UDPAddr, conn *net.UDPConn) {
 				currPoke := findPlayerPokemonByPokeID(opponent, gameStates[id].BeatingPokemon[opponent].ID)
 				gameStates[id].BeatingPokemon[opponent].Hp -= int(getDmgNumber(gameStates[id].BeatingPokemon[senderName], gameStates[id].BeatingPokemon[opponent]))
 				gameStates[id].ActivePokemons[opponent+"_"+currPoke.ID].Hp -= int(getDmgNumber(gameStates[id].BeatingPokemon[senderName], gameStates[id].BeatingPokemon[opponent]))
+
+				msg := fmt.Sprintf("%s hits: %d damages!", gameStates[id].BeatingPokemon[senderName].Name, 100)
+				sendMessage(msg, addr, conn)
+				msg = fmt.Sprintf("%s hited: %d damages!", gameStates[id].BeatingPokemon[opponent].Name, 100)
+				sendMessage(msg, players[opponent].Addr, conn)
+
+				msg = fmt.Sprintf("Active Pokemon: %s (HP: %d)", gameStates[id].BeatingPokemon[opponent].Name, gameStates[id].BeatingPokemon[opponent].Hp)
+				sendMessage(msg, players[opponent].Addr, conn)
+				msg = fmt.Sprintf("Active Pokemon: %s (HP: %d)", gameStates[id].BeatingPokemon[senderName].Name, gameStates[id].BeatingPokemon[senderName].Hp)
+				sendMessage(msg, addr, conn)
+
 				gameStates[id].CurrentTurn = opponent
 
-				if gameStates[id].BeatingPokemon[opponent].Hp <= 0 {
+				if gameStates[id].BeatingPokemon[opponent].Hp < 1 {
 					sendMessage("Your pokemon died, change the order!", players[opponent].Addr, conn)
 					sendMessage("@pokemon_died", players[opponent].Addr, conn)
 					delete(gameStates[id].ActivePokemons, opponent)
 					delete(gameStates[id].BeatingPokemon, opponent)
 				}
 
-				if _, ok := gameStates[id].ActivePokemons[opponent]; ok {
+				if len(gameStates[id].ActivePokemons) > 0 {
 					sendMessage("@opponent_attacked", players[opponent].Addr, conn)
 					sendMessage("@you_acttacked", addr, conn)
 				} else {
@@ -697,7 +713,7 @@ func checkExistedPlayerByAddr(addr *net.UDPAddr) bool {
 	return false
 }
 
-func getDmgNumber(pAtk *BattlePokemon, pRecive *BattlePokemon) float32 {
+func getDmgNumber(pAtk *BattlePokemon, pRecive *BattlePokemon) int {
 	var dmg float32
 	var types = make(map[string]float32)
 
@@ -721,7 +737,7 @@ func getDmgNumber(pAtk *BattlePokemon, pRecive *BattlePokemon) float32 {
 	types["Fairy"] = pRecive.TypeDefense.Fairy
 
 	rand.Seed(time.Now().UnixNano())
-	var choseAtk = rand.Intn(1-0+1) + 0
+	choseAtk := rand.Intn(2)
 	if choseAtk == 0 {
 		dmg = float32(pAtk.Atk) - float32(pRecive.Def)
 	} else {
@@ -737,7 +753,7 @@ func getDmgNumber(pAtk *BattlePokemon, pRecive *BattlePokemon) float32 {
 		}
 		dmg = float32(pAtk.SpAtk)*typeDefense - float32(pRecive.SpDef)
 	}
-	return dmg
+	return int(dmg)
 
 }
 func checkSpeed(pAtk *BattlePokemon, pRecive *BattlePokemon) string {
