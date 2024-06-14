@@ -108,7 +108,7 @@ type (
 		ActivePokemons map[string]*BattlePokemon // Store active Pokemons in the battle
 		BeatingPokemon map[string]*BattlePokemon
 		CurrentTurn    string
-		Status         string // "waiting", "inviting", "active"
+		Status         string
 		PokemonCounter map[string]int
 	}
 )

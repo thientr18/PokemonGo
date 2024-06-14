@@ -9,3 +9,4 @@ To pick pokemons:                   @pick pokemonID(in your owned pokemon list)
 To change pokemon:                  @change pokemonID(in your owned pokemon list)
 To acttack:                         @attack
 To find pokemon info                @pokedex pokemonID
+To change pokemon in the battle     @change
